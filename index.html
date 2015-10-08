@@ -1,0 +1,3726 @@
+<!DOCTYPE html>
+<html>
+
+ <head>
+   <title>Netball Championship</title>
+   <script src="d3.min.js"></script>
+   <script src="Chart.js"></script>
+   <style type="text/css">
+		body
+		{
+			margin: 0;
+			padding: 0;
+			padding-top: 10px;
+			text-align: center;
+			font-family: Calibri;
+			color: #005CB9;
+			-webkit-touch-callout: none;
+			-webkit-user-select: none;
+			-khtml-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+		}
+		#centered
+		{
+			width: 800px;
+			text-align: left;
+			border: 0px;
+			padding: 0;
+			margin 0 auto;
+		}
+		.infobox {
+			position: fixed;
+			width: 600px;
+			height: 200px;
+			padding: 10px;
+			top: 60%;
+			left: 5%;
+			pointer-events:none;
+		}
+		.modebox {
+			position: fixed;
+			width: 110px;
+			height: 110px;
+			padding: 10px;
+			top: 77%;
+			left: 5%;
+			background-image: url(logo.png);
+		}
+		.countinfobox {
+			
+			position: fixed;
+			width: 300px;
+			height: 130px;
+			padding: 10px;
+			top: 10%;
+			left: 72%;
+			text-align:left;
+			pointer-events:none;
+		}
+		.radiobuttons{
+			position: fixed;
+			width: 250px;
+			height: 270px;
+			padding: 10px;
+			top: 23%;
+			left: 77%;
+		}
+		.noresults{
+			position: fixed;
+			width: 200px;
+			height: 200px;
+			padding: 10px;
+			top: 30%;
+			left: 39%;
+			pointer-events:none;
+		}
+		#displaybox {
+			z-index: 10000;
+			-moz-opacity: .50; /*older Mozilla*/
+			-khtml-opacity: 0.5;   /*older Safari*/
+			background-color:#FFFFFF;
+			opacity: 0.95;
+			position:fixed; top:62px; left:30px; width:100%; height:90%; text-align:center; vertical-align:middle;
+			overflow: auto;
+			width: 600px;
+		}
+		#barCanvas{
+			position: fixed;
+			width: 600px;
+			height: 450px;
+			padding: 10px;
+			top: 10%;
+			left: 3%;
+			pointer-events:none;
+		}
+		#lineCanvas{
+			position: fixed;
+			width: 600px;
+			height: 450px;
+			padding: 10px;
+			top: 10%;
+			left: 36%;
+			pointer-events:none;
+		}
+}
+   </style>
+ </head>
+ 
+ <body>
+ <canvas id="barCanvas" height="320" width="490"></canvas>
+  <canvas id="lineCanvas" height="320" width="490"></canvas>
+ 
+<div class="infobox">
+	<p>Hello there! Select a year and circles will appear. Pointing at them will allow you to see information about that certain match! You can then use the filters to find certain information you may find interesting. There is also a statistics button allowing you to see more information about the current year and the current team!</p>
+</div>
+
+<div id="countinfobox" div class="countinfobox">
+	<p></p>
+</div>
+
+<div id="noresults" div class="noresults">
+	<p></p>
+</div>
+
+<div id="displaybox" style="display: none;"></div>
+
+<div id="modebox" div class="modebox"></div>
+
+ <div id="centered">
+ 
+	<script>
+		d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b></br><b>Most Losses:</b></br><b>Matches Shown:</b>");
+	
+		var height = 550;
+		var width = 1200;
+		var years = [2008, 2009, 2010, 2011, 2012, 2013];
+		var circles = [];
+		var info = [];
+		var teams = [];
+		var index = 0;
+		var stats = "closed";
+		
+		//yearButtonCanvas
+		var yearButtonCanvas = d3.select("body").append("svg")
+			.attr("width", 1200)
+			.attr("height", 60)
+			
+		//drawCanvas			
+		var drawCanvas = d3.select("body")
+			.append("svg:svg")
+			.attr("width", width)
+			.attr("height", height)
+	
+		var rect2008;
+		var rect2009;
+		var rect2010;
+		var rect2011;
+		var rect2012;
+		var rect2013;
+		var currentSelectedYear = "";
+		var byes = 0;
+		var textBoxTeam = "";
+		
+		var maxWinTeam = "";
+		var maxLossTeam = "";
+		var maxWin = 0;
+		var maxLoss = 0;
+		
+		var matchCount = 0;
+		
+		//For circles
+		var circleMouseOver = function(){
+			var circle = d3.select(this);
+			circle.attr("fill", "orange");
+			
+			if(info[((circle.attr("r")*2)-26)][5].length>0){
+				d3.select("p").text("This is index "+((circle.attr("r")*2)-26+1)+" of the data! It was round "+info[((circle.attr("r")*2)-26)][0]+" and happened on "+info[((circle.attr("r")*2)-26)][1]+". The home team was "+info[((circle.attr("r")*2)-26)][2]+" versus "+info[((circle.attr("r")*2)-26)][4]+" being the away team. The final score was "+info[((circle.attr("r")*2)-26)][3]+" and was played at "+info[((circle.attr("r")*2)-26)][5]);
+			}
+			else{
+				d3.select("p").text("This is index "+((circle.attr("r")*2)-26)+" of the data! "+info[((circle.attr("r")*2)-26)][1]);
+			}
+		}
+		
+		var circleMouseOut = function(){
+			var circle = d3.select(this);
+			circle.attr("fill", function(d){return colourScale(d);})
+		}
+		
+		//For arcs
+		var barMouseOver = function(){
+			var bar = d3.select(this);
+			bar.attr("fill", "orange");
+		}
+		
+		var barMouseOut = function(){
+			var bar= d3.select(this);
+			bar.attr("fill", function(d){return colourScale(d);})
+		}
+		
+		var randomXPosition = function(){
+			return 60+(Math.random()*((width - 120)+1));
+		}
+		
+		var randomYPosition = function(){
+			return 60+(Math.random()*((height - 120)+1));
+		}
+		
+		//Random colour
+		var colourScale = d3.scale.category20();
+		
+		rect2008 = yearButtonCanvas.append("rect")
+			.attr("width", 198)
+			.attr("height", 50)
+			.attr("fill", "#00AEEF")
+			.on("click", function(){
+				if(stats=="opened"){
+					printInformation();
+					stats = "closed";
+				}
+				clearGraphs();
+				document.getElementById("modeButton").innerHTML = "Compare"
+				d3.select("#noresults").html("");
+				matchCount = 0;
+				byes = 0;
+				currentSelectedYear = "2008";
+				populateVenues();
+				mostWins();
+				mostLosses();
+				clearRadioButtons();
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+			
+				rect2013.style("fill", "#00AEEF");
+				rect2009.style("fill", "#00AEEF");
+				rect2010.style("fill", "#00AEEF");
+				rect2011.style("fill", "#00AEEF");
+				rect2012.style("fill", "#00AEEF");
+			
+				circles = [];
+				info = [];
+			
+				d3.select(this).style("fill", "orange");
+			
+				d3.csv("2008-Table1.csv", function(fileData){
+					var radius = 26;
+					for( var i = 0; i < fileData.length; i++ ) {
+						if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+							byes++;
+						}
+						//circles[i] = Math.floor(15+(Math.random()*((30)+1)));
+						circles[i] = (26+i)/2;
+						var instance = [];
+						instance[0] = fileData[i]["Round"];
+						instance[1] = fileData[i]["Date"];
+						instance[2] = fileData[i]["Home Team"];
+						instance[3] = fileData[i]["Score"];
+						instance[4] = fileData[i]["Away Team"];
+						instance[5] = fileData[i]["Venue"];
+						info[i] = instance;
+						matchCount++;
+					}
+					
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+					////console.log("2008 Size: "+info.length);
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								////console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								////console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+				});
+			});
+			
+		rect2009 = yearButtonCanvas.append("rect")
+			.attr("width", 198)
+			.attr("height", 50)
+			.attr("x", 200)
+			.attr("fill", "#00AEEF")
+			.on("click", function(){
+				if(stats=="opened"){
+					printInformation();
+					stats = "closed";
+				}
+				clearGraphs();
+				document.getElementById("modeButton").innerHTML = "Compare"
+				matchCount = 0;
+				d3.select("#noresults").html("");
+				byes = 0;
+				currentSelectedYear = "2009";
+				populateVenues();
+				mostWins();
+				mostLosses();
+				clearRadioButtons();
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+			
+				rect2008.style("fill", "#00AEEF");
+				rect2013.style("fill", "#00AEEF");
+				rect2010.style("fill", "#00AEEF");
+				rect2011.style("fill", "#00AEEF");
+				rect2012.style("fill", "#00AEEF");
+			
+				circles = [];
+				info = [];
+			
+				d3.select(this).style("fill", "orange");
+			
+				d3.csv("2009-Table1.csv", function(fileData){
+					var radius = 26;
+					for( var i = 0; i < fileData.length; i++ ) {
+						if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+							byes++;
+						}
+						//circles[i] = Math.floor(15+(Math.random()*((30)+1)));
+						circles[i] = (26+i)/2;
+						var instance = [];
+						instance[0] = fileData[i]["Round"];
+						instance[1] = fileData[i]["Date"];
+						instance[2] = fileData[i]["Home Team"];
+						instance[3] = fileData[i]["Score"];
+						instance[4] = fileData[i]["Away Team"];
+						instance[5] = fileData[i]["Venue"];
+						info[i] = instance;
+						matchCount++;
+					}
+					
+					////console.log("Result Max Wins: "+maxWinTeam);
+					////console.log("Result Max Losses: "+maxLossTeam);
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+					////console.log("2009 Size: "+info.length);
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								////console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								////console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+				});
+			});
+			
+		rect2010 = yearButtonCanvas.append("rect")
+			.attr("width", 198)
+			.attr("height", 50)
+			.attr("x", 400)
+			.attr("fill", "#00AEEF")
+			.on("click", function(){
+				if(stats=="opened"){
+					printInformation();
+					stats = "closed";
+				}
+				clearGraphs();
+				document.getElementById("modeButton").innerHTML = "Compare"
+				matchCount = 0;
+				d3.select("#noresults").html("");
+				byes = 0;
+				currentSelectedYear = "2010";
+				populateVenues();
+				mostWins();
+				mostLosses();
+				clearRadioButtons();
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+			
+				rect2008.style("fill", "#00AEEF");
+				rect2009.style("fill", "#00AEEF");
+				rect2013.style("fill", "#00AEEF");
+				rect2011.style("fill", "#00AEEF");
+				rect2012.style("fill", "#00AEEF");
+			
+				circles = [];
+				info = [];
+			
+				d3.select(this).style("fill", "orange");
+			
+				d3.csv("2010-Table1.csv", function(fileData){
+					var radius = 26;
+					for( var i = 0; i < fileData.length; i++ ) {
+						if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+							byes++;
+						}
+						//circles[i] = Math.floor(15+(Math.random()*((30)+1)));
+						circles[i] = (26+i)/2;
+						var instance = [];
+						instance[0] = fileData[i]["Round"];
+						instance[1] = fileData[i]["Date"];
+						instance[2] = fileData[i]["Home Team"];
+						instance[3] = fileData[i]["Score"];
+						instance[4] = fileData[i]["Away Team"];
+						instance[5] = fileData[i]["Venue"];
+						info[i] = instance;
+						matchCount++;
+					}
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+					////console.log("2010 Size: "+info.length);
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								////console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								////console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+				});
+			});
+			
+		rect2011 = yearButtonCanvas.append("rect")
+			.attr("width", 198)
+			.attr("height", 50)
+			.attr("x", 600)
+			.attr("fill", "#00AEEF")
+			.on("click", function(){
+				if(stats=="opened"){
+					printInformation();
+					stats = "closed";
+				}
+				clearGraphs();
+				document.getElementById("modeButton").innerHTML = "Compare"
+				matchCount = 0;
+				d3.select("#noresults").html("");
+				byes = 0;
+				currentSelectedYear = "2011";
+				populateVenues();
+				mostWins();
+				mostLosses();
+				clearRadioButtons();
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+			
+				rect2008.style("fill", "#00AEEF");
+				rect2009.style("fill", "#00AEEF");
+				rect2010.style("fill", "#00AEEF");
+				rect2013.style("fill", "#00AEEF");
+				rect2012.style("fill", "#00AEEF");
+			
+				circles = [];
+				info = [];
+			
+				d3.select(this).style("fill", "orange");
+			
+				d3.csv("2011-Table1.csv", function(fileData){
+					var radius = 26;
+					for( var i = 0; i < fileData.length; i++ ) {
+						if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+							byes++;
+						}
+						//circles[i] = Math.floor(15+(Math.random()*((30)+1)));
+						circles[i] = (26+i)/2;
+						var instance = [];
+						instance[0] = fileData[i]["Round"];
+						instance[1] = fileData[i]["Date"];
+						instance[2] = fileData[i]["Home Team"];
+						instance[3] = fileData[i]["Score"];
+						instance[5] = fileData[i]["Away Team"];
+						instance[6] = fileData[i]["Venue"];
+						info[i] = instance;
+						matchCount++;
+					}
+					;
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+					////console.log("2011 Size: "+info.length);
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								////console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								////console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+
+				});
+			});
+			
+		rect2012 = yearButtonCanvas.append("rect")
+			.attr("width", 198)
+			.attr("height", 50)
+			.attr("x", 800)
+			.attr("fill", "#00AEEF")
+			.on("click", function(){
+				if(stats=="opened"){
+					printInformation();
+					stats = "closed";
+				}
+				clearGraphs();
+				document.getElementById("modeButton").innerHTML = "Compare"
+				matchCount = 0;
+				d3.select("#noresults").html("");
+				byes = 0;
+				currentSelectedYear = "2012";
+				populateVenues();
+				mostWins();
+				mostLosses();
+				clearRadioButtons();
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+			
+				rect2008.style("fill", "#00AEEF");
+				rect2009.style("fill", "#00AEEF");
+				rect2010.style("fill", "#00AEEF");
+				rect2011.style("fill", "#00AEEF");
+				rect2013.style("fill", "#00AEEF");
+			
+				circles = [];
+				info = [];
+			
+				d3.select(this).style("fill", "orange");
+			
+				d3.csv("2012-Table1.csv", function(fileData){
+					var radius = 26;
+					for( var i = 0; i < fileData.length; i++ ) {
+						if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+							byes++;
+						}
+						//circles[i] = Math.floor(15+(Math.random()*((30)+1)));
+						circles[i] = (26+i)/2;
+						var instance = [];
+						instance[0] = fileData[i]["Round"];
+						instance[1] = fileData[i]["Date"];
+						instance[2] = fileData[i]["Home Team"];
+						instance[3] = fileData[i]["Score"];
+						instance[4] = fileData[i]["Away Team"];
+						instance[5] = fileData[i]["Venue"];
+						info[i] = instance;
+						matchCount++;
+					}
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+					////console.log("2012 Size: "+info.length);
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								////console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								////console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+							
+				});
+			});
+			
+		rect2013 = yearButtonCanvas.append("rect")
+			.attr("width", 198)
+			.attr("height", 50)
+			.attr("x", 1000)
+			.attr("fill", "#00AEEF")
+			.on("click", function(){
+				if(stats=="opened"){
+					printInformation();
+					stats = "closed";
+				}
+				clearGraphs();
+				document.getElementById("modeButton").innerHTML = "Compare"
+				matchCount = 0;
+				d3.select("#noresults").html("");
+				byes = 0;
+				currentSelectedYear = "2013";
+				populateVenues();
+				mostWins();
+				mostLosses();
+				clearRadioButtons();
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+			
+				rect2008.style("fill", "#00AEEF");
+				rect2009.style("fill", "#00AEEF");
+				rect2010.style("fill", "#00AEEF");
+				rect2011.style("fill", "#00AEEF");
+				rect2012.style("fill", "#00AEEF");
+			
+				circles = [];
+				info = [];
+			
+				d3.select(this).style("fill", "orange");
+			
+				d3.csv("2013-Table1.csv", function(fileData){
+					var radius = 26;
+					for( var i = 0; i < fileData.length; i++ ) {
+						if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+							byes++;
+						}
+					
+						//circles[i] = Math.floor(15+(Math.random()*((30)+1)));
+						circles[i] = (26+i)/2;
+						var instance = [];
+						instance[0] = fileData[i]["Round"];
+						instance[1] = fileData[i]["Date"];
+						instance[2] = fileData[i]["Home Team"];
+						instance[3] = fileData[i]["Score"];
+						instance[4] = fileData[i]["Away Team"];
+						instance[5] = fileData[i]["Venue"];
+						info[i] = instance;
+						matchCount++;
+					}
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+					////console.log("2013 Size: "+info.length);
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								////console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								////console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+							
+				});
+			});
+			
+		//Year numbers
+		yearButtonCanvas.selectAll("text")
+			.data(years)
+			.enter()
+				.append("text")
+				.attr("fill", "white")
+				.attr("x", function(d, i) {return i*200+80;})
+				.attr("y", 30)
+				.text(function(d){return d;})		
+				
+		//Used to check the radio buttons and see what the user selected
+		function validateFilter(){
+			clearGraphs();
+			if(stats=="opened"){
+				printInformation();
+				stats = "closed";
+			}
+		
+			document.getElementById("modeButton").innerHTML = "Graph";
+			matchCount = 0;
+			d3.select("#noresults").html("");
+			byes = 0;
+			byes = 0;
+			myTextBox = document.getElementById("filter");
+			var radioSelected = myTextBox.value;
+			////console.log("radio selected: "+radioSelected);
+			 
+			
+			//Read in the data again and draw the circles to the current selected year
+			if(currentSelectedYear.length>0){		
+				
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+			
+				if(currentSelectedYear=="2008"){
+					rect2013.style("fill", "#00AEEF");
+					rect2009.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");
+					////console.log("2008 Fill Set");
+				}
+				else if(currentSelectedYear=="2009"){
+					rect2013.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");	
+					////console.log("2009 Fill Set");					
+				}
+				else if(currentSelectedYear=="2010"){
+					rect2013.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2009.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");	
+					////console.log("2010 Fill Set");					
+				}
+				else if(currentSelectedYear=="2011"){
+					rect2013.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2009.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");	
+					////console.log("2011 Fill Set");					
+				}
+				else if(currentSelectedYear=="2012"){
+					rect2013.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2009.style("fill", "#00AEEF");	
+					////console.log("2012 Fill Set");					
+				}
+				else if(currentSelectedYear=="2013"){
+					rect2009.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");
+					////console.log("2013 Fill Set");					
+				}
+			
+				circles = [];
+				info = [];
+
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+					////console.log("Reading "+currentSelectedYear+"-Table1.csv");
+					var radius = 26;
+					
+					for( var i = 0; i < fileData.length; i++ ) {
+						var firstScore = 0;
+						var secondScore = 0;
+						
+						if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+							byes++;
+						}
+						
+						//////console.log("Home Score "+i+": "+fileData[i]["Score"]);
+						firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+						secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+					
+						if(radioSelected=='Home Team Wins'){
+							/*////console.log("Home Team Radio");
+							////console.log("Home Score: "+fileData[i]["Score"]);
+							////console.log("Home Score: "+parseInt(firstScore)+" - "+parseInt(secondScore));*/
+							
+							if(parseInt(firstScore)>parseInt(secondScore)){
+								////console.log("Compared Home");
+								circles[i] = (26+i)/2;
+								var instance = [];
+								instance[0] = fileData[i]["Round"];
+								instance[1] = fileData[i]["Date"];
+								instance[2] = fileData[i]["Home Team"];
+								instance[3] = fileData[i]["Score"];
+								instance[4] = fileData[i]["Away Team"];
+								instance[5] = fileData[i]["Venue"];
+								info[i] = instance;
+								matchCount++;
+							}
+						}
+						else if(radioSelected=='Away Team Wins'){
+							////console.log("Away Team Radio");
+							if(parseInt(firstScore)<parseInt(secondScore)){
+								////console.log("Compared Away");
+								circles[i] = (26+i)/2;
+								var instance = [];
+								instance[0] = fileData[i]["Round"];
+								instance[1] = fileData[i]["Date"];
+								instance[2] = fileData[i]["Home Team"];
+								instance[3] = fileData[i]["Score"];
+								instance[4] = fileData[i]["Away Team"];
+								instance[5] = fileData[i]["Venue"];
+								info[i] = instance;
+								matchCount++;
+							}
+						}
+						else if(radioSelected=='All'){
+							////console.log("All Radio");
+							circles[i] = (26+i)/2;
+							var instance = [];
+							instance[0] = fileData[i]["Round"];
+							instance[1] = fileData[i]["Date"];
+							instance[2] = fileData[i]["Home Team"];
+							instance[3] = fileData[i]["Score"];
+							instance[4] = fileData[i]["Away Team"];
+							instance[5] = fileData[i]["Venue"];
+							info[i] = instance;
+							matchCount++;
+						}
+						else if(radioSelected=='New Zealand Wins'){
+							////console.log("NZ Team Radio");
+							if(nzTeam(fileData[i]["Home Team"])){
+								if(parseInt(firstScore)>parseInt(secondScore)){
+									////console.log("Compared Home");
+									circles[i] = (26+i)/2;
+									var instance = [];
+									instance[0] = fileData[i]["Round"];
+									instance[1] = fileData[i]["Date"];
+									instance[2] = fileData[i]["Home Team"];
+									instance[3] = fileData[i]["Score"];
+									instance[4] = fileData[i]["Away Team"];
+									instance[5] = fileData[i]["Venue"];
+									info[i] = instance;
+									matchCount++;
+								}
+							}
+							else if(nzTeam(fileData[i]["Away Team"])){
+								if(parseInt(firstScore)<parseInt(secondScore)){
+									////console.log("Compared Away");
+									circles[i] = (26+i)/2;
+									var instance = [];
+									instance[0] = fileData[i]["Round"];
+									instance[1] = fileData[i]["Date"];
+									instance[2] = fileData[i]["Home Team"];
+									instance[3] = fileData[i]["Score"];
+									instance[4] = fileData[i]["Away Team"];
+									instance[5] = fileData[i]["Venue"];
+									info[i] = instance;
+									matchCount++;
+								}
+							}
+						}
+						else if(radioSelected=='Australia Wins'){
+							////console.log("Australian Team Radio");
+							if(!nzTeam(fileData[i]["Home Team"])){
+								if(parseInt(firstScore)>parseInt(secondScore)){
+									////console.log("Compared Home");
+									circles[i] = (26+i)/2;
+									var instance = [];
+									instance[0] = fileData[i]["Round"];
+									instance[1] = fileData[i]["Date"];
+									instance[2] = fileData[i]["Home Team"];
+									instance[3] = fileData[i]["Score"];
+									instance[4] = fileData[i]["Away Team"];
+									instance[5] = fileData[i]["Venue"];
+									info[i] = instance;
+									matchCount++;
+								}
+							}
+							else if(!nzTeam(fileData[i]["Away Team"])){
+								if(parseInt(firstScore)<parseInt(secondScore)){
+									////console.log("Compared Away");
+									circles[i] = (26+i)/2;
+									var instance = [];
+									instance[0] = fileData[i]["Round"];
+									instance[1] = fileData[i]["Date"];
+									instance[2] = fileData[i]["Home Team"];
+									instance[3] = fileData[i]["Score"];
+									instance[4] = fileData[i]["Away Team"];
+									instance[5] = fileData[i]["Venue"];
+									info[i] = instance;
+									matchCount++;
+								}
+							}
+						}
+						else if(radioSelected=='Early Season'){
+							if(parseInt(fileData[i]["Round"])<=7){
+								circles[i] = (26+i)/2;
+								var instance = [];
+								instance[0] = fileData[i]["Round"];
+								instance[1] = fileData[i]["Date"];
+								instance[2] = fileData[i]["Home Team"];
+								instance[3] = fileData[i]["Score"];
+								instance[4] = fileData[i]["Away Team"];
+								instance[5] = fileData[i]["Venue"];
+								info[i] = instance;
+								matchCount++;
+							}
+						}
+						else if(radioSelected=='Mid Season'){
+							if(parseInt(fileData[i]["Round"])<15 && parseInt(fileData[i]["Round"])>7){
+								circles[i] = (26+i)/2;
+								var instance = [];
+								instance[0] = fileData[i]["Round"];
+								instance[1] = fileData[i]["Date"];
+								instance[2] = fileData[i]["Home Team"];
+								instance[3] = fileData[i]["Score"];
+								instance[4] = fileData[i]["Away Team"];
+								instance[5] = fileData[i]["Venue"];
+								info[i] = instance;
+								matchCount++;
+							}
+						}
+						else if(radioSelected=='Regular Season'){
+							if(parseInt(fileData[i]["Round"])<15){
+								circles[i] = (26+i)/2;
+								var instance = [];
+								instance[0] = fileData[i]["Round"];
+								instance[1] = fileData[i]["Date"];
+								instance[2] = fileData[i]["Home Team"];
+								instance[3] = fileData[i]["Score"];
+								instance[4] = fileData[i]["Away Team"];
+								instance[5] = fileData[i]["Venue"];
+								info[i] = instance;
+								matchCount++;
+							}
+						}
+						else if(radioSelected=='Finals'){
+							if(parseInt(fileData[i]["Round"])>14){
+								circles[i] = (26+i)/2;
+								var instance = [];
+								instance[0] = fileData[i]["Round"];
+								instance[1] = fileData[i]["Date"];
+								instance[2] = fileData[i]["Home Team"];
+								instance[3] = fileData[i]["Score"];
+								instance[4] = fileData[i]["Away Team"];
+								instance[5] = fileData[i]["Venue"];
+								info[i] = instance;
+								matchCount++;
+							}
+						}
+					}
+
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+					////console.log("Radio Size: "+info.length);
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								////console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								////console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+							
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+		}
+		
+		//Clears the radio buttons when the user presses one of the year buttons
+		function clearRadioButtons(){
+			myTextBox = document.getElementById("filter");
+			myTextBox.value = "All";
+			
+			myTextBox2 = document.getElementById("venue");
+			myTextBox2.value = "All";
+		}
+		
+		//Submit button to look for the team
+		function searchTeam(){
+			clearGraphs();
+			if(stats=="opened"){
+				printInformation();
+				stats = "closed";
+			}
+		
+			document.getElementById("modeButton").innerHTML = "Graph";
+			matchCount = 0;
+			d3.select("#noresults").html("");
+			byes = 0;
+			myTextBox = document.getElementById("textEntry");
+			value = myTextBox.value;
+			
+			oppTextBox = document.getElementById("opponentEntry");
+			oppValue = oppTextBox.value;
+			
+			var homeAway = document.getElementById("homeAwayTeam");
+			var homeAwayValue = homeAway.options[homeAway.selectedIndex].text;
+			
+			var winL = document.getElementById("winLose");
+			var winLValue = winL.options[winL.selectedIndex].text;
+		
+			if(value.length>0){
+				//console.log("search box "+value);
+				//console.log("homeAwayValue "+homeAwayValue);
+				//console.log("winLValue "+winLValue);
+			}
+			
+			if(value=="Byes"){
+				value = "";
+			}
+			
+			//Read in the data again and draw the circles to the current selected year
+			if(currentSelectedYear.length>0){		
+				
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+			
+				if(currentSelectedYear=="2008"){
+					rect2013.style("fill", "#00AEEF");
+					rect2009.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");
+					//console.log("2008 Fill Set");
+				}
+				else if(currentSelectedYear=="2009"){
+					rect2013.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");	
+					//console.log("2009 Fill Set");					
+				}
+				else if(currentSelectedYear=="2010"){
+					rect2013.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2009.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");	
+					//console.log("2010 Fill Set");					
+				}
+				else if(currentSelectedYear=="2011"){
+					rect2013.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2009.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");	
+					//console.log("2011 Fill Set");					
+				}
+				else if(currentSelectedYear=="2012"){
+					rect2013.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2009.style("fill", "#00AEEF");	
+					//console.log("2012 Fill Set");					
+				}
+				else if(currentSelectedYear=="2013"){
+					rect2009.style("fill", "#00AEEF");
+					rect2008.style("fill", "#00AEEF");
+					rect2010.style("fill", "#00AEEF");
+					rect2011.style("fill", "#00AEEF");
+					rect2012.style("fill", "#00AEEF");
+					//console.log("2013 Fill Set");					
+				}
+			
+				circles = [];
+				info = [];
+
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+					//console.log("Reading "+currentSelectedYear+"-Table1.csv");
+					var radius = 26;
+					
+					for( var i = 0; i < fileData.length; i++ ) {
+						if(oppValue!="All"){
+						
+						
+							var firstScore = 0;
+							var secondScore = 0;
+							
+							firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+							secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+							
+							if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+								byes++;
+							}
+
+							if(homeAwayValue == "Both"){
+								if(fileData[i]["Home Team"]==value || fileData[i]["Away Team"]==value){
+									if(fileData[i]["Home Team"]==oppValue || fileData[i]["Away Team"]==oppValue){
+											if(winLValue == "Both"){
+												circles[i] = (26+i)/2;
+												var instance = [];
+												instance[0] = fileData[i]["Round"];
+												instance[1] = fileData[i]["Date"];
+												instance[2] = fileData[i]["Home Team"];
+												instance[3] = fileData[i]["Score"];
+												instance[4] = fileData[i]["Away Team"];
+												instance[5] = fileData[i]["Venue"];
+												info[i] = instance;
+												matchCount++;
+											}
+											else if(winLValue == "Lose"){
+												if(fileData[i]["Away Team"]==value){
+													if(parseInt(firstScore)>parseInt(secondScore)){
+														circles[i] = (26+i)/2;
+														var instance = [];
+														instance[0] = fileData[i]["Round"];
+														instance[1] = fileData[i]["Date"];
+														instance[2] = fileData[i]["Home Team"];
+														instance[3] = fileData[i]["Score"];
+														instance[4] = fileData[i]["Away Team"];
+														instance[5] = fileData[i]["Venue"];
+														info[i] = instance;
+														matchCount++;
+													}
+												}
+												else{
+													if(parseInt(firstScore)<parseInt(secondScore)){
+														circles[i] = (26+i)/2;
+														var instance = [];
+														instance[0] = fileData[i]["Round"];
+														instance[1] = fileData[i]["Date"];
+														instance[2] = fileData[i]["Home Team"];
+														instance[3] = fileData[i]["Score"];
+														instance[4] = fileData[i]["Away Team"];
+														instance[5] = fileData[i]["Venue"];
+														info[i] = instance;
+														matchCount++;
+													}
+												}
+											}
+											else if(winLValue == "Win"){
+												if(fileData[i]["Away Team"]==value){
+													if(parseInt(firstScore)<parseInt(secondScore)){
+														circles[i] = (26+i)/2;
+														var instance = [];
+														instance[0] = fileData[i]["Round"];
+														instance[1] = fileData[i]["Date"];
+														instance[2] = fileData[i]["Home Team"];
+														instance[3] = fileData[i]["Score"];
+														instance[4] = fileData[i]["Away Team"];
+														instance[5] = fileData[i]["Venue"];
+														info[i] = instance;
+														matchCount++;
+													}
+												}
+												else{
+													if(parseInt(firstScore)>parseInt(secondScore)){
+														circles[i] = (26+i)/2;
+														var instance = [];
+														instance[0] = fileData[i]["Round"];
+														instance[1] = fileData[i]["Date"];
+														instance[2] = fileData[i]["Home Team"];
+														instance[3] = fileData[i]["Score"];
+														instance[4] = fileData[i]["Away Team"];
+														instance[5] = fileData[i]["Venue"];
+														info[i] = instance;
+														matchCount++;
+													}
+												}
+											}
+									}
+								}
+							}
+							else if(homeAwayValue == "Home Team"){
+								if(fileData[i]["Home Team"]==value){
+									if(fileData[i]["Away Team"]==oppValue){
+											if(winLValue == "Both"){
+												circles[i] = (26+i)/2;
+												var instance = [];
+												instance[0] = fileData[i]["Round"];
+												instance[1] = fileData[i]["Date"];
+												instance[2] = fileData[i]["Home Team"];
+												instance[3] = fileData[i]["Score"];
+												instance[4] = fileData[i]["Away Team"];
+												instance[5] = fileData[i]["Venue"];
+												info[i] = instance;
+												matchCount++;
+											}
+											else if(winLValue == "Lose"){
+												if(parseInt(firstScore)<parseInt(secondScore)){
+													circles[i] = (26+i)/2;
+													var instance = [];
+													instance[0] = fileData[i]["Round"];
+													instance[1] = fileData[i]["Date"];
+													instance[2] = fileData[i]["Home Team"];
+													instance[3] = fileData[i]["Score"];
+													instance[4] = fileData[i]["Away Team"];
+													instance[5] = fileData[i]["Venue"];
+													info[i] = instance;
+													matchCount++;
+												}
+											}
+											else if(winLValue == "Win"){
+												if(parseInt(firstScore)>parseInt(secondScore)){
+													circles[i] = (26+i)/2;
+													var instance = [];
+													instance[0] = fileData[i]["Round"];
+													instance[1] = fileData[i]["Date"];
+													instance[2] = fileData[i]["Home Team"];
+													instance[3] = fileData[i]["Score"];
+													instance[4] = fileData[i]["Away Team"];
+													instance[5] = fileData[i]["Venue"];
+													info[i] = instance;
+													matchCount++;
+												}
+											}
+									}
+								}
+							}
+							else if(homeAwayValue == "Away Team"){
+								if(fileData[i]["Away Team"]==value){
+									if(fileData[i]["Home Team"]==oppValue){
+											if(winLValue == "Both"){
+												circles[i] = (26+i)/2;
+												var instance = [];
+												instance[0] = fileData[i]["Round"];
+												instance[1] = fileData[i]["Date"];
+												instance[2] = fileData[i]["Home Team"];
+												instance[3] = fileData[i]["Score"];
+												instance[4] = fileData[i]["Away Team"];
+												instance[5] = fileData[i]["Venue"];
+												info[i] = instance;
+												matchCount++;
+											}
+											else if(winLValue == "Lose"){
+												if(parseInt(firstScore)>parseInt(secondScore)){
+													circles[i] = (26+i)/2;
+													var instance = [];
+													instance[0] = fileData[i]["Round"];
+													instance[1] = fileData[i]["Date"];
+													instance[2] = fileData[i]["Home Team"];
+													instance[3] = fileData[i]["Score"];
+													instance[4] = fileData[i]["Away Team"];
+													instance[5] = fileData[i]["Venue"];
+													info[i] = instance;
+													matchCount++;
+												}
+											}
+											else if(winLValue == "Win"){
+												if(parseInt(firstScore)<parseInt(secondScore)){
+													circles[i] = (26+i)/2;
+													var instance = [];
+													instance[0] = fileData[i]["Round"];
+													instance[1] = fileData[i]["Date"];
+													instance[2] = fileData[i]["Home Team"];
+													instance[3] = fileData[i]["Score"];
+													instance[4] = fileData[i]["Away Team"];
+													instance[5] = fileData[i]["Venue"];
+													info[i] = instance;
+													matchCount++;
+												}
+											}
+									}
+								}
+							}
+							
+							//////////////////////////////////////////////////////////////////////
+							//////////////////////////////////////////////////////////////////////
+							//////////////////////////////////////////////////////////////////////
+						}
+						else{
+							var firstScore = 0;
+							var secondScore = 0;
+							
+							firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+							secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+							
+							if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+								byes++;
+							}
+
+							if(homeAwayValue == "Both"){
+								if(fileData[i]["Home Team"]==value || fileData[i]["Away Team"]==value){
+									if(winLValue == "Both"){
+										circles[i] = (26+i)/2;
+										var instance = [];
+										instance[0] = fileData[i]["Round"];
+										instance[1] = fileData[i]["Date"];
+										instance[2] = fileData[i]["Home Team"];
+										instance[3] = fileData[i]["Score"];
+										instance[4] = fileData[i]["Away Team"];
+										instance[5] = fileData[i]["Venue"];
+										info[i] = instance;
+										matchCount++;
+									}
+									else if(winLValue == "Lose"){
+										if(fileData[i]["Away Team"]==value){
+											if(parseInt(firstScore)>parseInt(secondScore)){
+												circles[i] = (26+i)/2;
+												var instance = [];
+												instance[0] = fileData[i]["Round"];
+												instance[1] = fileData[i]["Date"];
+												instance[2] = fileData[i]["Home Team"];
+												instance[3] = fileData[i]["Score"];
+												instance[4] = fileData[i]["Away Team"];
+												instance[5] = fileData[i]["Venue"];
+												info[i] = instance;
+												matchCount++;
+											}
+										}
+										else{
+											if(parseInt(firstScore)<parseInt(secondScore)){
+												circles[i] = (26+i)/2;
+												var instance = [];
+												instance[0] = fileData[i]["Round"];
+												instance[1] = fileData[i]["Date"];
+												instance[2] = fileData[i]["Home Team"];
+												instance[3] = fileData[i]["Score"];
+												instance[4] = fileData[i]["Away Team"];
+												instance[5] = fileData[i]["Venue"];
+												info[i] = instance;
+												matchCount++;
+											}
+										}
+									}
+									else if(winLValue == "Win"){
+										if(fileData[i]["Away Team"]==value){
+											if(parseInt(firstScore)<parseInt(secondScore)){
+												circles[i] = (26+i)/2;
+												var instance = [];
+												instance[0] = fileData[i]["Round"];
+												instance[1] = fileData[i]["Date"];
+												instance[2] = fileData[i]["Home Team"];
+												instance[3] = fileData[i]["Score"];
+												instance[4] = fileData[i]["Away Team"];
+												instance[5] = fileData[i]["Venue"];
+												info[i] = instance;
+												matchCount++;
+											}
+										}
+										else{
+											if(parseInt(firstScore)>parseInt(secondScore)){
+												circles[i] = (26+i)/2;
+												var instance = [];
+												instance[0] = fileData[i]["Round"];
+												instance[1] = fileData[i]["Date"];
+												instance[2] = fileData[i]["Home Team"];
+												instance[3] = fileData[i]["Score"];
+												instance[4] = fileData[i]["Away Team"];
+												instance[5] = fileData[i]["Venue"];
+												info[i] = instance;
+												matchCount++;
+											}
+										}
+									}
+								}
+							}
+							else if(homeAwayValue == "Home Team"){
+								if(fileData[i]["Home Team"]==value){
+									if(winLValue == "Both"){
+										circles[i] = (26+i)/2;
+										var instance = [];
+										instance[0] = fileData[i]["Round"];
+										instance[1] = fileData[i]["Date"];
+										instance[2] = fileData[i]["Home Team"];
+										instance[3] = fileData[i]["Score"];
+										instance[4] = fileData[i]["Away Team"];
+										instance[5] = fileData[i]["Venue"];
+										info[i] = instance;
+										matchCount++;
+									}
+									else if(winLValue == "Lose"){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											circles[i] = (26+i)/2;
+											var instance = [];
+											instance[0] = fileData[i]["Round"];
+											instance[1] = fileData[i]["Date"];
+											instance[2] = fileData[i]["Home Team"];
+											instance[3] = fileData[i]["Score"];
+											instance[4] = fileData[i]["Away Team"];
+											instance[5] = fileData[i]["Venue"];
+											info[i] = instance;
+											matchCount++;
+										}
+									}
+									else if(winLValue == "Win"){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											circles[i] = (26+i)/2;
+											var instance = [];
+											instance[0] = fileData[i]["Round"];
+											instance[1] = fileData[i]["Date"];
+											instance[2] = fileData[i]["Home Team"];
+											instance[3] = fileData[i]["Score"];
+											instance[4] = fileData[i]["Away Team"];
+											instance[5] = fileData[i]["Venue"];
+											info[i] = instance;
+											matchCount++;
+										}
+									}
+								}
+							}
+							else if(homeAwayValue == "Away Team"){
+								if(fileData[i]["Away Team"]==value){
+									if(winLValue == "Both"){
+										circles[i] = (26+i)/2;
+										var instance = [];
+										instance[0] = fileData[i]["Round"];
+										instance[1] = fileData[i]["Date"];
+										instance[2] = fileData[i]["Home Team"];
+										instance[3] = fileData[i]["Score"];
+										instance[4] = fileData[i]["Away Team"];
+										instance[5] = fileData[i]["Venue"];
+										info[i] = instance;
+										matchCount++;
+									}
+									else if(winLValue == "Lose"){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											circles[i] = (26+i)/2;
+											var instance = [];
+											instance[0] = fileData[i]["Round"];
+											instance[1] = fileData[i]["Date"];
+											instance[2] = fileData[i]["Home Team"];
+											instance[3] = fileData[i]["Score"];
+											instance[4] = fileData[i]["Away Team"];
+											instance[5] = fileData[i]["Venue"];
+											info[i] = instance;
+											matchCount++;
+										}
+									}
+									else if(winLValue == "Win"){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											circles[i] = (26+i)/2;
+											var instance = [];
+											instance[0] = fileData[i]["Round"];
+											instance[1] = fileData[i]["Date"];
+											instance[2] = fileData[i]["Home Team"];
+											instance[3] = fileData[i]["Score"];
+											instance[4] = fileData[i]["Away Team"];
+											instance[5] = fileData[i]["Venue"];
+											info[i] = instance;
+											matchCount++;
+										}
+									}
+								}
+							}
+						}
+					}
+					
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+					
+					if(info.length==0){
+						d3.select("#noresults").html("No results found!");
+					}
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								//console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								//console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+							
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+		}
+		
+		//Check if New Zealand or Australian team. True is NZ, False is Australian.
+		function nzTeam(team){			
+			if(team == "Central Pulse"||team=="Northern Mystics"||team=="Waikato Bay of Plenty Magic"||team=="Southern Steel"||team=="Canterbury Tactix"){
+				//console.log("nzTeam: true");
+				return true;
+			}
+			//console.log("nzTeam: false");
+			return false;
+		}
+		
+		//Contains check
+		function contains(team){
+			for(var i=0;i<teams.length;i++){
+				if(team==teams[i]){
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		//Prints all teams
+		function printTeams(){
+			teams = [];
+			index = 0;
+			d3.select("#noresults").html("");
+			
+			d3.csv("2009-Table1.csv", function(fileData){
+				for(var i=0;i<fileData.length;i++){
+					if(!contains(fileData[i]["Home Team"])){
+						teams[index] = fileData[i]["Home Team"];
+						index++;
+					}
+					if(!contains(fileData[i]["Away Team"])){
+						teams[index] = fileData[i]["Away Team"];
+						index++;
+					}
+				}
+				
+				teams.sort();
+							
+				var print = "Teams:";
+				for(var i=0;i<teams.length;i++){
+						print+="\n"+teams[i];
+				}
+				alert(print);
+			});
+		}
+		
+		//Find team with most wins in the current selected year
+		function mostWins(){
+			var AdelaideThunderbirds = 0;
+			var CanterburyTactix = 0;
+			var CentralPulse = 0;
+			var MelbourneVixens = 0;
+			var NewSouthWalesSwifts = 0;
+			var NorthernMystics = 0;
+			var QueenslandFirebirds = 0;
+			var SouthernSteel = 0;
+			var WaikatoBayofPlentyMagic = 0;
+			var WestCoastFever = 0;
+			
+			maxWin = 0;
+			
+			////console.log("Most Wins Current Year: "+currentSelectedYear);
+			
+			d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				for(var i=0;i<fileData.length;i++){
+					var firstScore = 0;
+					var secondScore = 0;
+						
+					firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+					secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+				
+					if(parseInt(firstScore)>parseInt(secondScore)){
+						if(fileData[i]["Home Team"]=="Adelaide Thunderbirds"){
+							AdelaideThunderbirds++;
+						}
+						else if(fileData[i]["Home Team"]=="Canterbury Tactix"){
+							CanterburyTactix++;
+						}
+						else if(fileData[i]["Home Team"]=="Central Pulse"){
+							CentralPulse++;
+						}
+						else if(fileData[i]["Home Team"]=="Melbourne Vixens"){
+							MelbourneVixens++;
+						}
+						else if(fileData[i]["Home Team"]=="NewSouthWalesSwifts"){
+							NewSouthWalesSwifts++;
+						}
+						else if(fileData[i]["Home Team"]=="Northern Mystics"){
+							NorthernMystics++;
+						}
+						else if(fileData[i]["Home Team"]=="Queensland Firebirds"){
+							QueenslandFirebirds++;
+						}
+						else if(fileData[i]["Home Team"]=="Southern Steel"){
+							SouthernSteel++;
+						}
+						else if(fileData[i]["Home Team"]=="Waikato Bay of Plenty Magic"){
+							WaikatoBayofPlentyMagic++;
+						}
+						else if(fileData[i]["Home Team"]=="West Coast Fever"){
+							WestCoastFever++;
+						}
+					}
+					else if(parseInt(firstScore)<parseInt(secondScore)){
+						if(fileData[i]["Away Team"]=="Adelaide Thunderbirds"){
+							AdelaideThunderbirds++;
+						}
+						else if(fileData[i]["Away Team"]=="Canterbury Tactix"){
+							CanterburyTactix++;
+						}
+						else if(fileData[i]["Away Team"]=="Central Pulse"){	
+							CentralPulse++;
+						}
+						else if(fileData[i]["Away Team"]=="Melbourne Vixens"){
+							MelbourneVixens++;
+						}
+						else if(fileData[i]["Away Team"]=="NewSouthWalesSwifts"){
+							NewSouthWalesSwifts++;
+						}
+						else if(fileData[i]["Away Team"]=="Northern Mystics"){
+							NorthernMystics++;
+						}
+						else if(fileData[i]["Away Team"]=="Queensland Firebirds"){
+							QueenslandFirebirds++;
+						}
+						else if(fileData[i]["Away Team"]=="Southern Steel"){
+							SouthernSteel++;
+						}
+						else if(fileData[i]["Away Team"]=="Waikato Bay of Plenty Magic"){
+							WaikatoBayofPlentyMagic++;
+						}
+						else if(fileData[i]["Away Team"]=="West Coast Fever"){
+							WestCoastFever++;
+						}
+					}
+					
+					if(AdelaideThunderbirds>maxWin){
+						////console.log("a");
+						maxWin = AdelaideThunderbirds;
+						maxWinTeam = "Adelaide Thunderbirds";
+					}
+					if(CanterburyTactix>maxWin){
+					////console.log("a2");
+						maxWin = CanterburyTactix;
+						maxWinTeam = "Canterbury Tactix";
+					}
+					if(CentralPulse>maxWin){
+					//console.log("a3");
+						maxWin = CentralPulse;
+						maxWinTeam = "Central Pulse";
+					}
+					if(MelbourneVixens>maxWin){
+					////console.log("a4");
+						maxWin = MelbourneVixens;
+						maxWinTeam = "Melbourne Vixens";
+					}
+					if(NewSouthWalesSwifts>maxWin){
+					////console.log("a5");
+						maxWin = NewSouthWalesSwifts;
+						maxWinTeam = "New South Wales Swifts";
+					}
+					if(NorthernMystics>maxWin){
+					////console.log("a6");
+						maxWin = NorthernMystics;
+						maxWinTeam = "Northern Mystics";
+					}
+					if(QueenslandFirebirds>maxWin){
+					////console.log("a7");
+						maxWin = QueenslandFirebirds;
+						maxWinTeam = "Queensland Firebirds";
+					}
+					if(SouthernSteel>maxWin){
+					////console.log("a8");
+						maxWin = SouthernSteel;
+						maxWinTeam = "Southern Steel";
+					}
+					if(WaikatoBayofPlentyMagic>maxWin){
+					////console.log("a9");
+						maxWin = WaikatoBayofPlentyMagic;
+						maxWinTeam = "Waikato Bay of Plenty Magic";
+						////console.log("a9 result: "+maxWinTeam);
+					}
+					if(WestCoastFever>maxWin){
+					////console.log("a10");
+						maxWin = WestCoastFever;
+						maxWinTeam = "West Coast Fever";
+					}
+				}			
+			});
+		}
+		
+		//Find team with most losses in the current selected year
+		function mostLosses(){
+			var AdelaideThunderbirds = 0;
+			var CanterburyTactix = 0;
+			var CentralPulse = 0;
+			var MelbourneVixens = 0;
+			var NewSouthWalesSwifts = 0;
+			var NorthernMystics = 0;
+			var QueenslandFirebirds = 0;
+			var SouthernSteel = 0;
+			var WaikatoBayofPlentyMagic = 0;
+			var WestCoastFever = 0;
+			
+			maxLoss = 0;
+			
+			d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				for(var i=0;i<fileData.length;i++){
+					var firstScore = 0;
+					var secondScore = 0;
+						
+					firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+					secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+				
+					if(parseInt(firstScore)<parseInt(secondScore)){
+						if(fileData[i]["Home Team"]=="Adelaide Thunderbirds"){
+							AdelaideThunderbirds++;
+						}
+						else if(fileData[i]["Home Team"]=="Canterbury Tactix"){
+							CanterburyTactix++;
+						}
+						else if(fileData[i]["Home Team"]=="Central Pulse"){
+							CentralPulse++;
+						}
+						else if(fileData[i]["Home Team"]=="Melbourne Vixens"){
+							MelbourneVixens++;
+						}
+						else if(fileData[i]["Home Team"]=="NewSouthWalesSwifts"){
+							NewSouthWalesSwifts++;
+						}
+						else if(fileData[i]["Home Team"]=="Northern Mystics"){
+							NorthernMystics++;
+						}
+						else if(fileData[i]["Home Team"]=="Queensland Firebirds"){
+							QueenslandFirebirds++;
+						}
+						else if(fileData[i]["Home Team"]=="Southern Steel"){
+							SouthernSteel++;
+						}
+						else if(fileData[i]["Home Team"]=="Waikato Bay of Plenty Magic"){
+							WaikatoBayofPlentyMagic++;
+						}
+						else if(fileData[i]["Home Team"]=="West Coast Fever"){
+							WestCoastFever++;
+						}
+					}
+					else if(parseInt(firstScore)>parseInt(secondScore)){
+						if(fileData[i]["Away Team"]=="Adelaide Thunderbirds"){
+							AdelaideThunderbirds++;
+						}
+						else if(fileData[i]["Away Team"]=="Canterbury Tactix"){
+							CanterburyTactix++;
+						}
+						else if(fileData[i]["Away Team"]=="Central Pulse"){
+							CentralPulse++;
+						}
+						else if(fileData[i]["Away Team"]=="Melbourne Vixens"){
+							MelbourneVixens++;
+						}
+						else if(fileData[i]["Away Team"]=="NewSouthWalesSwifts"){
+							NewSouthWalesSwifts++;
+						}
+						else if(fileData[i]["Away Team"]=="Northern Mystics"){
+							NorthernMystics++;
+						}
+						else if(fileData[i]["Away Team"]=="Queensland Firebirds"){
+							QueenslandFirebirds++;
+						}
+						else if(fileData[i]["Away Team"]=="Southern Steel"){
+							SouthernSteel++;
+						}
+						else if(fileData[i]["Away Team"]=="Waikato Bay of Plenty Magic"){
+							WaikatoBayofPlentyMagic++;
+						}
+						else if(fileData[i]["Away Team"]=="West Coast Fever"){
+							WestCoastFever++;
+						}
+					}
+					
+					if(AdelaideThunderbirds>maxLoss){
+						maxLoss = AdelaideThunderbirds;
+						maxLossTeam = "Adelaide Thunderbirds";
+					}
+					if(CanterburyTactix>maxLoss){
+						maxLoss = CanterburyTactix;
+						maxLossTeam = "Canterbury Tactix";
+					}
+					if(CentralPulse>maxLoss){
+						maxLoss = CentralPulse;
+						maxLossTeam = "Central Pulse";
+					}
+					if(MelbourneVixens>maxLoss){
+						maxLoss = MelbourneVixens;
+						maxLossTeam = "Melbourne Vixens";
+					}
+					if(NewSouthWalesSwifts>maxLoss){
+						maxLoss = NewSouthWalesSwifts;
+						maxLossTeam = "New South Wales Swifts";
+					}
+					if(NorthernMystics>maxLoss){
+						maxLoss = NorthernMystics;
+						maxLossTeam = "Northern Mystics";
+					}
+					if(QueenslandFirebirds>maxLoss){
+						maxLoss = QueenslandFirebirds;
+						maxLossTeam = "Queensland Firebirds";
+					}
+					if(SouthernSteel>maxLoss){
+						maxLoss = SouthernSteel;
+						maxLossTeam = "Southern Steel";
+					}
+					if(WaikatoBayofPlentyMagic>maxLoss){
+						maxLoss = WaikatoBayofPlentyMagic;
+						maxLossTeam = "Waikato Bay of Plenty Magic";
+					}
+					if(WestCoastFever>maxLoss){
+						maxLoss = WestCoastFever;
+						maxLossTeam = "West Coast Fever";
+					}
+				}
+			});
+		}
+		
+		//Find the highest amount of wins
+		function highestWinsAgainstTeam(callback){
+			myTextBox = document.getElementById("textEntry");
+			var team = myTextBox.value;
+		
+			var AdelaideThunderbirds = 0;
+			var CanterburyTactix = 0;
+			var CentralPulse = 0;
+			var MelbourneVixens = 0;
+			var NewSouthWalesSwifts = 0;
+			var NorthernMystics = 0;
+			var QueenslandFirebirds = 0;
+			var SouthernSteel = 0;
+			var WaikatoBayofPlentyMagic = 0;
+			var WestCoastFever = 0;
+			
+			var max = 0;
+			var maxTeam = 0;
+			if(currentSelectedYear.length>0){
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				
+					for(var i=0;i<fileData.length;i++){
+						var firstScore = 0;
+						var secondScore = 0;
+							
+						firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+						secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+					
+						//Adelaide Thunderbirds
+						if(fileData[i]["Home Team"]==team){
+							if(parseInt(firstScore)>parseInt(secondScore)){
+								if(fileData[i]["Away Team"]=="Canterbury Tactix"){
+									CanterburyTactix++;
+								}
+								else if(fileData[i]["Away Team"]=="Adelaide Thunderbirds"){
+									AdelaideThunderbirds++;
+								}
+								else if(fileData[i]["Away Team"]=="Central Pulse"){
+									CentralPulse++;
+								}
+								else if(fileData[i]["Away Team"]=="Melbourne Vixens"){
+									MelbourneVixens++;
+								}
+								else if(fileData[i]["Away Team"]=="New South Wales Swifts"){
+									NewSouthWalesSwifts++;
+								}
+								else if(fileData[i]["Away Team"]=="Northern Mystics"){
+									NorthernMystics++;
+								}
+								else if(fileData[i]["Away Team"]=="Queensland Firebirds"){
+									QueenslandFirebirds++;
+								}
+								else if(fileData[i]["Away Team"]=="Southern Steel"){
+									SouthernSteel++;
+								}
+								else if(fileData[i]["Away Team"]=="Waikato Bay of Plenty Magic"){
+									WaikatoBayofPlentyMagic++;
+								}
+								else if(fileData[i]["Away Team"]=="West Coast Fever"){
+									WestCoastFever;
+								}
+							}
+						}
+						else if(fileData[i]["Away Team"]==team){
+							if(parseInt(firstScore)<parseInt(secondScore)){
+								if(fileData[i]["Home Team"]=="Canterbury Tactix"){
+									CanterburyTactix++;
+								}
+								else if(fileData[i]["Home Team"]=="Adelaide Thunderbirds"){
+									AdelaideThunderbirds++;
+								}
+								else if(fileData[i]["Home Team"]=="Central Pulse"){
+									CentralPulse++;
+								}
+								else if(fileData[i]["Home Team"]=="Melbourne Vixens"){
+									MelbourneVixens++;
+								}
+								else if(fileData[i]["Home Team"]=="New South Wales Swifts"){
+									NewSouthWalesSwifts++;
+								}
+								else if(fileData[i]["Home Team"]=="Northern Mystics"){
+									NorthernMystics++;
+								}
+								else if(fileData[i]["Home Team"]=="Queensland Firebirds"){
+									QueenslandFirebirds++;
+								}
+								else if(fileData[i]["Home Team"]=="Southern Steel"){
+									SouthernSteel++;
+								}
+								else if(fileData[i]["Home Team"]=="Waikato Bay of Plenty Magic"){
+									WaikatoBayofPlentyMagic++;
+								}
+								else if(fileData[i]["Home Team"]=="West Coast Fever"){
+									WestCoastFever;
+								}
+							}
+						}
+					}
+					
+					//Now find the team with the highest amount of wins against
+					
+					if(AdelaideThunderbirds>max){
+						max = AdelaideThunderbirds;
+						maxTeam = "Adelaide Thunderbirds";
+					}
+					if(CanterburyTactix>max){
+						max = CanterburyTactix;
+						maxTeam = "Canterbury Tactix";
+					}
+					if(CentralPulse>max){
+						max = CentralPulse;
+						maxTeam = "Central Pulse";
+					}
+					if(MelbourneVixens>max){
+						max = MelbourneVixens;
+						maxTeam = "Melbourne Vixens";
+					}
+					if(NewSouthWalesSwifts>max){
+						max = NewSouthWalesSwifts;
+						maxTeam = "New South Wales Swifts";
+					}
+					if(NorthernMystics>max){
+						max = NorthernMystics;
+						maxTeam = "Northern Mystics";
+					}
+					if(QueenslandFirebirds>max){
+						max = QueenslandFirebirds;
+						maxTeam = "Queensland Firebirds";
+					}
+					if(SouthernSteel>max){
+						max = SouthernSteel;
+						maxTeam = "Southern Steel";
+					}
+					if(WaikatoBayofPlentyMagic>max){
+						max = WaikatoBayofPlentyMagic;
+						maxTeam = "Waikato Bay of Plenty Magic";
+					}
+					if(WestCoastFever>max){
+						max = WestCoastFever;
+						maxTeam = "West Coast Fever";
+					}
+					
+					//alert(team+" obtained most wins from "+maxTeam+" with "+max+" wins.");
+					//console.log("returning win");
+					if(maxTeam.length>0 && max>0){
+						callback(team+" obtained most wins from "+maxTeam+" with "+max+" wins.");
+					}
+					else if(team=="Byes"){
+						callback("Byes do not have wins.");
+					}
+					else{
+						callback(team+" did not win a single match this year!");
+					}
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+			
+		}
+		
+		
+		//Find the highest amount of losses
+		function highestLossesAgainstTeam(callback){
+			myTextBox = document.getElementById("textEntry");
+			var team = myTextBox.value;
+		
+			var AdelaideThunderbirds = 0;
+			var CanterburyTactix = 0;
+			var CentralPulse = 0;
+			var MelbourneVixens = 0;
+			var NewSouthWalesSwifts = 0;
+			var NorthernMystics = 0;
+			var QueenslandFirebirds = 0;
+			var SouthernSteel = 0;
+			var WaikatoBayofPlentyMagic = 0;
+			var WestCoastFever = 0;
+			
+			var max = 0;
+			var maxTeam = 0;
+			if(currentSelectedYear.length>0){
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				
+					for(var i=0;i<fileData.length;i++){
+						var firstScore = 0;
+						var secondScore = 0;
+							
+						firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+						secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+					
+						//Adelaide Thunderbirds
+						if(fileData[i]["Home Team"]==team){
+							if(parseInt(firstScore)<parseInt(secondScore)){
+								if(fileData[i]["Away Team"]=="Canterbury Tactix"){
+									CanterburyTactix++;
+								}
+								else if(fileData[i]["Away Team"]=="Adelaide Thunderbirds"){
+									AdelaideThunderbirds++;
+								}
+								else if(fileData[i]["Away Team"]=="Central Pulse"){
+									CentralPulse++;
+								}
+								else if(fileData[i]["Away Team"]=="Melbourne Vixens"){
+									MelbourneVixens++;
+								}
+								else if(fileData[i]["Away Team"]=="New South Wales Swifts"){
+									NewSouthWalesSwifts++;
+								}
+								else if(fileData[i]["Away Team"]=="Northern Mystics"){
+									NorthernMystics++;
+								}
+								else if(fileData[i]["Away Team"]=="Queensland Firebirds"){
+									QueenslandFirebirds++;
+								}
+								else if(fileData[i]["Away Team"]=="Southern Steel"){
+									SouthernSteel++;
+								}
+								else if(fileData[i]["Away Team"]=="Waikato Bay of Plenty Magic"){
+									WaikatoBayofPlentyMagic++;
+								}
+								else if(fileData[i]["Away Team"]=="West Coast Fever"){
+									WestCoastFever;
+								}
+							}
+						}
+						else if(fileData[i]["Away Team"]==team){
+							if(parseInt(firstScore)>parseInt(secondScore)){
+								if(fileData[i]["Home Team"]=="Canterbury Tactix"){
+									CanterburyTactix++;
+								}
+								else if(fileData[i]["Home Team"]=="Adelaide Thunderbirds"){
+									AdelaideThunderbirds++;
+								}
+								else if(fileData[i]["Home Team"]=="Central Pulse"){
+									CentralPulse++;
+								}
+								else if(fileData[i]["Home Team"]=="Melbourne Vixens"){
+									MelbourneVixens++;
+								}
+								else if(fileData[i]["Home Team"]=="New South Wales Swifts"){
+									NewSouthWalesSwifts++;
+								}
+								else if(fileData[i]["Home Team"]=="Northern Mystics"){
+									NorthernMystics++;
+								}
+								else if(fileData[i]["Home Team"]=="Queensland Firebirds"){
+									QueenslandFirebirds++;
+								}
+								else if(fileData[i]["Home Team"]=="Southern Steel"){
+									SouthernSteel++;
+								}
+								else if(fileData[i]["Home Team"]=="Waikato Bay of Plenty Magic"){
+									WaikatoBayofPlentyMagic++;
+								}
+								else if(fileData[i]["Home Team"]=="West Coast Fever"){
+									WestCoastFever;
+								}
+							}
+						}
+					}
+					
+					//Now find the team with the highest amount of wins against
+					
+					if(AdelaideThunderbirds>max){
+						//console.log("a");
+						max = AdelaideThunderbirds;
+						maxTeam = "Adelaide Thunderbirds";
+					}
+					if(CanterburyTactix>max){
+					//console.log("a2");
+						max = CanterburyTactix;
+						maxTeam = "Canterbury Tactix";
+					}
+					if(CentralPulse>max){
+					//console.log("a3");
+						max = CentralPulse;
+						maxTeam = "Central Pulse";
+					}
+					if(MelbourneVixens>max){
+					//console.log("a4");
+						max = MelbourneVixens;
+						maxTeam = "Melbourne Vixens";
+					}
+					if(NewSouthWalesSwifts>max){
+					//console.log("a5");
+						max = NewSouthWalesSwifts;
+						maxTeam = "New South Wales Swifts";
+					}
+					if(NorthernMystics>max){
+					//console.log("a6");
+						max = NorthernMystics;
+						maxTeam = "Northern Mystics";
+					}
+					if(QueenslandFirebirds>max){
+					//console.log("a7");
+						max = QueenslandFirebirds;
+						maxTeam = "Queensland Firebirds";
+					}
+					if(SouthernSteel>max){
+					//console.log("a8");
+						max = SouthernSteel;
+						maxTeam = "Southern Steel";
+					}
+					if(WaikatoBayofPlentyMagic>max){
+					//console.log("a9");
+						max = WaikatoBayofPlentyMagic;
+						maxTeam = "Waikato Bay of Plenty Magic";
+						//console.log("a9 max: "+max);
+						//console.log("a9 maxTeam: "+maxTeam);
+					}
+					if(WestCoastFever>max){
+					//console.log("a10");
+						max = WestCoastFever;
+						maxTeam = "West Coast Fever";
+					}
+					
+					//alert(team+" obtained most losses from "+maxTeam+" with "+max+" losses.");
+					//console.log("returning");
+					if(maxTeam.length>0 && max>0){
+						callback(team+" obtained most losses from "+maxTeam+" with "+max+" losses.");
+					}
+					else if(team=="Byes"){
+						callback("Byes do not have losses.");
+					}
+					else{
+						callback(team+" did not lose a single match this year!");
+					}
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+			
+		}
+		
+		//Find the placings
+		function findPlacings(callback){
+			var teams = {};
+			
+			teams["Adelaide Thunderbirds"] = 0;
+			teams["Canterbury Tactix"] = 0;
+			teams["Central Pulse"] = 0;
+			teams["Melbourne Vixens"] = 0;
+			teams["New South Wales Swifts"] = 0;
+			teams["Northern Mystics"] = 0;
+			teams["Queensland Firebirds"] = 0;
+			teams["Southern Steel"] = 0;
+			teams["Waikato Bay of Plenty Magic"] = 0;
+			teams["West Coast Fever"] = 0;
+			
+			var sortedKeys = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+			
+			if(currentSelectedYear.length>0){
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+					for(var i=0;i<fileData.length;i++){
+						var firstScore = 0;
+						var secondScore = 0;
+							
+						firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+						secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+						
+						if(parseInt(firstScore)>parseInt(secondScore)){
+							if(fileData[i]["Home Team"] in teams){
+								teams[fileData[i]["Home Team"]]++;
+							}
+						}
+						else if(parseInt(firstScore)<parseInt(secondScore)){
+							if(fileData[i]["Away Team"] in teams){
+								teams[fileData[i]["Away Team"]]++;
+							}
+						}
+					}
+					
+					//Sort the map from largest to smallest
+					var result = "";
+					var count = 1;
+					var mapKeys = Object.keys(teams);
+					mapKeys.sort(function(a,b){return teams[b] - teams[a]});
+					
+					mapKeys.forEach(function(key) {
+						//console.log("Processing ", teams[key]);
+						result += "</br>"+count+". "+key+" - "+(teams[key]*2);
+						count++;
+					});
+					
+					callback(result);
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+		}
+		
+		//Find final season placings
+		function findPlacingsFinals(callback){
+			var teams = {};
+			
+			teams["Adelaide Thunderbirds"] = 0;
+			teams["Canterbury Tactix"] = 0;
+			teams["Central Pulse"] = 0;
+			teams["Melbourne Vixens"] = 0;
+			teams["New South Wales Swifts"] = 0;
+			teams["Northern Mystics"] = 0;
+			teams["Queensland Firebirds"] = 0;
+			teams["Southern Steel"] = 0;
+			teams["Waikato Bay of Plenty Magic"] = 0;
+			teams["West Coast Fever"] = 0;
+			
+			var sortedKeys = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+			
+			if(currentSelectedYear.length>0){
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+					for(var i=0;i<fileData.length;i++){
+						if(fileData[i]["Round"]>14){
+							var firstScore = 0;
+							var secondScore = 0;
+								
+							firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+							secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+							
+							if(parseInt(firstScore)>parseInt(secondScore)){
+								if(fileData[i]["Home Team"] in teams){
+									teams[fileData[i]["Home Team"]]++;
+								}
+							}
+							else if(parseInt(firstScore)<parseInt(secondScore)){
+								if(fileData[i]["Away Team"] in teams){
+									teams[fileData[i]["Away Team"]]++;
+								}
+							}
+						}
+					}
+					
+					//Sort the map from largest to smallest
+					var result = "";
+					var count = 1;
+					var mapKeys = Object.keys(teams);
+					mapKeys.sort(function(a,b){return teams[b] - teams[a]});
+					
+					mapKeys.forEach(function(key) {
+						//console.log("Processing ", teams[key]);
+						result += "</br>"+count+". "+key+" - "+(teams[key]*2);
+						count++;
+					});
+					
+					callback(result);
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+		}
+		
+		//Find mid season placings
+		function findPlacingsMid(callback){
+			var teams = {};
+			
+			teams["Adelaide Thunderbirds"] = 0;
+			teams["Canterbury Tactix"] = 0;
+			teams["Central Pulse"] = 0;
+			teams["Melbourne Vixens"] = 0;
+			teams["New South Wales Swifts"] = 0;
+			teams["Northern Mystics"] = 0;
+			teams["Queensland Firebirds"] = 0;
+			teams["Southern Steel"] = 0;
+			teams["Waikato Bay of Plenty Magic"] = 0;
+			teams["West Coast Fever"] = 0;
+			
+			var sortedKeys = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+			
+			if(currentSelectedYear.length>0){
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+					for(var i=0;i<fileData.length;i++){
+						if(fileData[i]["Round"]<15 && fileData[i]["Round"]>7){
+							var firstScore = 0;
+							var secondScore = 0;
+								
+							firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+							secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+							
+							if(parseInt(firstScore)>parseInt(secondScore)){
+								if(fileData[i]["Home Team"] in teams){
+									teams[fileData[i]["Home Team"]]++;
+								}
+							}
+							else if(parseInt(firstScore)<parseInt(secondScore)){
+								if(fileData[i]["Away Team"] in teams){
+									teams[fileData[i]["Away Team"]]++;
+								}
+							}
+						}
+					}
+					
+					//Sort the map from largest to smallest
+					var result = "";
+					var count = 1;
+					var mapKeys = Object.keys(teams);
+					mapKeys.sort(function(a,b){return teams[b] - teams[a]});
+					
+					mapKeys.forEach(function(key) {
+						//console.log("Processing ", teams[key]);
+						result += "</br>"+count+". "+key+" - "+(teams[key]*2);
+						count++;
+					});
+					
+					callback(result);
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+		}
+		
+		//Find early season placings
+		function findPlacingsEarly(callback){
+			var teams = {};
+			
+			teams["Adelaide Thunderbirds"] = 0;
+			teams["Canterbury Tactix"] = 0;
+			teams["Central Pulse"] = 0;
+			teams["Melbourne Vixens"] = 0;
+			teams["New South Wales Swifts"] = 0;
+			teams["Northern Mystics"] = 0;
+			teams["Queensland Firebirds"] = 0;
+			teams["Southern Steel"] = 0;
+			teams["Waikato Bay of Plenty Magic"] = 0;
+			teams["West Coast Fever"] = 0;
+			
+			var sortedKeys = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+			
+			if(currentSelectedYear.length>0){
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+					for(var i=0;i<fileData.length;i++){
+						if(fileData[i]["Round"]<8){
+							var firstScore = 0;
+							var secondScore = 0;
+								
+							firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+							secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+							
+							if(parseInt(firstScore)>parseInt(secondScore)){
+								if(fileData[i]["Home Team"] in teams){
+									teams[fileData[i]["Home Team"]]++;
+								}
+							}
+							else if(parseInt(firstScore)<parseInt(secondScore)){
+								if(fileData[i]["Away Team"] in teams){
+									teams[fileData[i]["Away Team"]]++;
+								}
+							}
+						}
+					}
+					
+					//Sort the map from largest to smallest
+					var result = "";
+					var count = 1;
+					var mapKeys = Object.keys(teams);
+					mapKeys.sort(function(a,b){return teams[b] - teams[a]});
+					
+					mapKeys.forEach(function(key) {
+						//console.log("Processing ", teams[key]);
+						result += "</br>"+count+". "+key+" - "+(teams[key]*2);
+						count++;
+					});
+					
+					callback(result);
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+		}
+		
+		//Print the team information
+		function printInformation(){
+			var thediv = document.getElementById('displaybox');
+			
+			if(stats=="closed"){
+				stats = "opened";
+			}
+			else{
+				stats = "closed";
+			}
+		
+			if(currentSelectedYear.length>0){
+				var result = "<b><center>ANZ Netball Championships Statistics:</b></br></center></br>"+"<b>"+currentSelectedYear+" Team Performance:</b>"+"</br><i>Byes:</i> "+byes+"</br>";
+				myTextBox = document.getElementById("textEntry");
+				value = myTextBox.value;
+				if(value.length==0){
+					result +="<i>Enter a team name into the search bar to see information about them!</i>";
+				}
+				
+				//var myWindow = window.open("", "MsgWindow", "width=650, height=600, scrollbars=yes");
+
+				highestWinsAgainstTeam(function(num){
+					myTextBox = document.getElementById("textEntry");
+					value = myTextBox.value;
+					if(value.length>0){
+						result += ""+num;
+					}
+					
+					highestLossesAgainstTeam(function(num){
+						myTextBox = document.getElementById("textEntry");
+						value = myTextBox.value;
+						if(value.length>0){
+							result+="</br>"+num;
+						}
+						
+						findPlacings(function(num){
+							result+="</br></br><b>"+currentSelectedYear+" Entire Season Team Placings:</b>"+num;
+							
+							findPlacingsEarly(function(num){
+								result+="</br></br><b>"+currentSelectedYear+" Early Season Team Placings:</b>"+num;
+								
+								findPlacingsMid(function(num){
+									result+="</br></br><b>"+currentSelectedYear+" Mid Season Team Placings:</b>"+num;
+									
+									findPlacingsFinals(function(num){
+										result+="</br></br><b>"+currentSelectedYear+" Final Season Team Placings:</b>"+num;
+							
+										courtValue(function(num){
+											result+="</br></br><b>"+currentSelectedYear+" Court Value:</b></br>"+num;
+
+											countryPerformances(function(num){
+												result+="</br></br><b>"+currentSelectedYear+" Country Performances:</b></br>"+num;
+												
+												rivalries(function(num){
+													result+="</br></br><b>"+currentSelectedYear+"</b> "+num;
+													
+													rivalriesAllSeasons(function(num){
+														result+="</br><b>All Seasons Rivalries:</b></br>"+num;
+														
+														venuePerformance(function(num){
+															result+=num;
+														
+															if(thediv.style.display == "none"){
+																thediv.style.display = "";
+																thediv.innerHTML = "<table width='100%' height='100%'><tr><td align='left' valign='middle' width='100%' height='100%'>"+result+"</br><a href='#' onclick='return printInformation();'><center>CLOSE WINDOW</center></a></td></tr></table>";
+															}else{
+																thediv.style.display = "none";
+																thediv.innerHTML = '';
+															}
+															return false;
+														});
+													});
+												});
+											});
+										});
+									});
+								});
+							});
+						});
+					});
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+		}
+		
+		//helper function only to find the different venues
+		function listVenues(){
+			clearGraphs();
+			if(stats=="opened"){
+				printInformation();
+				stats = "closed";
+			}
+		
+			document.getElementById("modeButton").innerHTML = "Graph";
+			matchCount = 0;
+			d3.select("#noresults").html("");
+			byes = 0;
+			myTextBox = document.getElementById("venue");
+			var value = myTextBox.value;
+			
+			if(currentSelectedYear.length>0){
+				circles = [];
+				info = [];
+				drawCanvas.selectAll("circle").remove();
+				drawCanvas.selectAll("rect").remove();
+				drawCanvas.selectAll("text").remove();
+
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+					var radius = 26;
+					
+					for( var i = 0; i < fileData.length; i++ ) {
+						if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+							byes++;
+						}
+						
+						if(value!='All'){
+							if(fileData[i]["Venue"]==value){
+								//console.log("Correct!");
+								circles[i] = (26+i)/2;
+								var instance = [];
+								instance[0] = fileData[i]["Round"];
+								instance[1] = fileData[i]["Date"];
+								instance[2] = fileData[i]["Home Team"];
+								instance[3] = fileData[i]["Score"];
+								instance[4] = fileData[i]["Away Team"];
+								instance[5] = fileData[i]["Venue"];
+								info[i] = instance;
+								matchCount++;
+							}
+						}
+						else{
+							//console.log("Correct!");
+							circles[i] = (26+i)/2;
+							var instance = [];
+							instance[0] = fileData[i]["Round"];
+							instance[1] = fileData[i]["Date"];
+							instance[2] = fileData[i]["Home Team"];
+							instance[3] = fileData[i]["Score"];
+							instance[4] = fileData[i]["Away Team"];
+							instance[5] = fileData[i]["Venue"];
+							info[i] = instance;
+							matchCount++;
+						}
+					}
+					
+					d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+						
+					if(info.length==0){
+						d3.select("#noresults").html("No results found!");
+					}
+					
+					var xPos = 0;
+					var yPos = 60;
+			
+					drawCanvas.selectAll("circle")
+						.data(circles) 		
+						.enter()
+							.append("svg:circle") 
+							.attr("cx", randomXPosition)
+							.attr("cy", randomYPosition)
+							.attr("stroke-width", 2)
+							.attr("stroke", "black")
+							.attr("r", function(d) {return d;})		
+							.attr("fill", function(d){return colourScale(d);})
+							.on("mouseover", circleMouseOver)
+							.on("mouseout", circleMouseOut)
+							.transition()
+							.duration(1500)
+							.attr("cx", function(d, i){
+								//console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+								xPos+=+((26+i)/2)-10; 
+								if(i==57){
+									xPos = 450;
+								}
+								return (xPos+((26+i)/2));
+							})							
+							.attr("cy", function(d, i){
+								//console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+								yPos+=+((26+i)/2)-20; 
+								if(i==57){
+									yPos = 10;
+								}
+								return (yPos+((26+i)/2));
+							});
+							
+
+				});
+			}
+			else{
+				d3.select("#noresults").html("You must select a year!");
+			}
+		}
+		
+		//Find all venues in selected year and populate the venue drop down list
+		function populateVenues(){
+			var venuesList = [];
+			var index = 0;
+			var venueDropDown = document.getElementById('venue');
+			
+			//Clears
+			venueDropDown.options.length = 0;
+		
+			//Read file and add Venues
+			d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				for(var i=0;i<fileData.length;i++){
+					if(!containsVenue(venuesList, fileData[i]["Venue"])){
+						venuesList[index] = fileData[i]["Venue"];
+						index++;
+					}
+				}
+				
+				venuesList.sort();
+				var opt = "All";
+				var el = document.createElement("option");
+				el.textContent = opt;
+				el.value = opt;
+				venueDropDown.appendChild(el);
+				
+				for(var i=0;i<venuesList.length;i++){
+					if(venuesList[i].length>0){
+						var opt = venuesList[i];
+						var el = document.createElement("option");
+						el.textContent = opt;
+						el.value = opt;
+						venueDropDown.appendChild(el);
+					}
+				}
+			});
+			
+			function containsVenue(venuesList, venue){
+				for(var i=0;i<venuesList.length;i++){
+					if(venuesList[i]==venue){
+						return true;
+					}
+				}
+				return false;
+			}
+		}
+		
+		//Find the value of teams playing on home court versus away team. Do teams win more playing at home or away?
+		function courtValue(callback){
+			var home = 0;
+			var away = 0;
+			
+			myTextBox = document.getElementById("textEntry");
+			var team = myTextBox.value;
+			
+			d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				for(var i=0;i<fileData.length;i++){
+					var firstScore = 0;
+					var secondScore = 0;
+					firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+					secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+					
+					if(fileData[i]["Home Team"]==team||fileData[i]["Away Team"]==team){
+						if(parseInt(firstScore)>parseInt(secondScore)){
+							if(fileData[i]["Home Team"]==team){
+								home++;
+							}
+						}
+						else if(parseInt(firstScore)<parseInt(secondScore)){
+							if(fileData[i]["Away Team"]==team){
+								away++;
+							}
+						}
+					}
+				}
+				
+				if(team=="Byes"){
+					callback("Byes do not have any relevant data.");
+				}
+				else if(home>away){
+					callback(team+" has won more matches when playing on home courts with "+home+" wins compared to "+away+" wins away.");
+				}
+				else if(home==away){
+					callback(team+" has won an even amount of "+home+" wins on home and away courts.");
+				}
+				else{
+					callback(team+" has won more matches when playing on away courts with "+away+" wins away compared to "+home+" wins home.");
+				}
+			});
+		}
+		
+		//Performance of teams from both Australia and NZ - Will calculate how many games in total Aus teams have gotten and same with NZ team.
+		function countryPerformances(callback){
+			var nz = 0;
+			var aus = 0;
+			var nzAway = 0;
+			var ausAway = 0;
+		
+			d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				for(var i=0;i<fileData.length;i++){
+					var firstScore = 0;
+					var secondScore = 0;
+					firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+					secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+					
+					if(parseInt(firstScore)>parseInt(secondScore)){
+						if(nzTeam(fileData[i]["Home Team"])){
+							nz++;
+						}
+						else if(!nzTeam(fileData[i]["Home Team"])){
+							aus++;
+						}
+					}
+					else if(parseInt(firstScore)<parseInt(secondScore)){
+						if(nzTeam(fileData[i]["Away Team"])){
+							nz++;
+							nzAway++;
+						}
+						else if(!nzTeam(fileData[i]["Away Team"])){
+							aus++;
+							ausAway++;
+						}
+					}
+				}
+				
+				callback("<i>New Zealand:</i> "+nz+" wins with "+nzAway+" being away wins.</br><i>Australia:</i> "+aus+" wins with "+ausAway+" being away wins.");
+			});
+		}
+		
+		//Find the rivalries
+		function rivalries(callback){
+			d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				teamsMap = [];
+				teamsMap["Adelaide Thunderbirds"] = [];
+				teamsMap["Canterbury Tactix"] = [];
+				teamsMap["Central Pulse"] = [];
+				teamsMap["Melbourne Vixens"] = [];
+				teamsMap["New South Wales Swifts"] = [];
+				teamsMap["Northern Mystics"] = [];
+				teamsMap["Queensland Firebirds"] = [];
+				teamsMap["Southern Steel"] = [];
+				teamsMap["Waikato Bay of Plenty Magic"] = [];
+				teamsMap["West Coast Fever"] = [];
+			
+				currentTeamScore = 0;
+				enemyTeamScore = 0;
+				total = 0;
+			
+				var teams = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+				
+				var result = "<b>Rivalries:</b></br>";
+			
+				for(var i=0;i<teams.length;i++){
+					for(var j=0;j<teams.length;j++){
+						if(teams[i]!=teams[j]){
+							if(teams[i] in teamsMap || teams[j] in teamsMap){
+								if(!containsTeam(teamsMap, teams[i], teams[j])){
+									currentTeamScore = 0;
+									enemyTeamScore = 0;
+									total = 0;
+								
+									for(var k=0;k<fileData.length;k++){
+										var firstScore = 0;
+										var secondScore = 0;
+										
+										firstScore = ""+fileData[k]["Score"][0]+fileData[k]["Score"][1];
+										secondScore = ""+fileData[k]["Score"][5]+fileData[k]["Score"][6];
+									
+										if(fileData[k]["Home Team"]==teams[i] && fileData[k]["Away Team"]==teams[j]){
+											if(parseInt(firstScore)>parseInt(secondScore)){
+												currentTeamScore++;
+											}
+											else if(parseInt(firstScore)<parseInt(secondScore)){
+												enemyTeamScore++;
+											}
+											total++;
+											teamsMap[teams[i]].push(teams[j]);
+										}
+										else if(fileData[k]["Home Team"]==teams[j] && fileData[k]["Away Team"]==teams[i]){
+											if(parseInt(firstScore)>parseInt(secondScore)){
+												enemyTeamScore++;
+											}
+											else if(parseInt(firstScore)<parseInt(secondScore)){
+												currentTeamScore++;
+											}
+											total++;
+											teamsMap[teams[j]].push(teams[i]);
+										}
+									}
+								
+									var tfPercent = total*0.25;
+									
+									if(total>0){
+										if(currentTeamScore>=tfPercent && enemyTeamScore>=tfPercent){
+											result+="<i>Total Games: "+total+"</i> - "+teams[i]+": "+currentTeamScore+" vs "+teams[j]+": "+enemyTeamScore+"</br>";
+										}
+									}	
+								}
+							}
+						}
+					}
+				}
+				
+				//console.log("returning: "+result);
+				callback(result);
+			});
+			
+			function containsTeam(teamsMap, currentTeam, enemyTeam){
+				var teams = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+				
+				for(var i=0;i<teams.length;i++){
+					if(teams[i]==currentTeam){
+						for(var j=0;j<teamsMap[teams[i]].length;j++){
+							if(teamsMap[teams[i]][j]==enemyTeam){
+								return true;
+							}
+						}
+					}
+					else if(teams[i]==enemyTeam){
+						for(var j=0;j<teamsMap[teams[i]].length;j++){
+							if(teamsMap[teams[i]][j]==currentTeam){
+								return true;
+							}
+						}
+					}
+				}
+				
+				return false;
+			}
+		}
+		
+				//Find the rivalries
+		function rivalriesAllSeasons(callback){
+			d3.csv("2008-Table1.csv", function(fileData8){
+				d3.csv("2009-Table1.csv", function(fileData9){
+					d3.csv("2010-Table1.csv", function(fileData10){
+						d3.csv("2011-Table1.csv", function(fileData11){
+							d3.csv("2012-Table1.csv", function(fileData12){
+								d3.csv("2013-Table1.csv", function(fileData13){
+									teamsMap = [];
+									teamsMap["Adelaide Thunderbirds"] = [];
+									teamsMap["Canterbury Tactix"] = [];
+									teamsMap["Central Pulse"] = [];
+									teamsMap["Melbourne Vixens"] = [];
+									teamsMap["New South Wales Swifts"] = [];
+									teamsMap["Northern Mystics"] = [];
+									teamsMap["Queensland Firebirds"] = [];
+									teamsMap["Southern Steel"] = [];
+									teamsMap["Waikato Bay of Plenty Magic"] = [];
+									teamsMap["West Coast Fever"] = [];
+								
+									currentTeamScore = 0;
+									enemyTeamScore = 0;
+									total = 0;
+								
+									var teams = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+									
+									var result = "";
+									
+									//2008
+									for(var i=0;i<teams.length;i++){
+										for(var j=0;j<teams.length;j++){
+											if(teams[i]!=teams[j]){
+												if(teams[i] in teamsMap || teams[j] in teamsMap){
+													if(!containsTeam(teamsMap, teams[i], teams[j])){
+														currentTeamScore = 0;
+														enemyTeamScore = 0;
+														total = 0;
+													
+														//2008
+														for(var k=0;k<fileData8.length;k++){
+															var firstScore = 0;
+															var secondScore = 0;
+															
+															firstScore = ""+fileData8[k]["Score"][0]+fileData8[k]["Score"][1];
+															secondScore = ""+fileData8[k]["Score"][5]+fileData8[k]["Score"][6];
+														
+															if(fileData8[k]["Home Team"]==teams[i] && fileData8[k]["Away Team"]==teams[j]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																total++;
+																teamsMap[teams[i]].push(teams[j]);
+															}
+															else if(fileData8[k]["Home Team"]==teams[j] && fileData8[k]["Away Team"]==teams[i]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																total++;
+																teamsMap[teams[j]].push(teams[i]);
+															}
+														}
+														
+														//2009
+														for(var k=0;k<fileData9.length;k++){
+															var firstScore = 0;
+															var secondScore = 0;
+															
+															firstScore = ""+fileData9[k]["Score"][0]+fileData9[k]["Score"][1];
+															secondScore = ""+fileData9[k]["Score"][5]+fileData9[k]["Score"][6];
+														
+															if(fileData9[k]["Home Team"]==teams[i] && fileData9[k]["Away Team"]==teams[j]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																total++;
+																teamsMap[teams[i]].push(teams[j]);
+															}
+															else if(fileData9[k]["Home Team"]==teams[j] && fileData9[k]["Away Team"]==teams[i]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																total++;
+																teamsMap[teams[j]].push(teams[i]);
+															}
+														}
+														
+														//2010
+														for(var k=0;k<fileData10.length;k++){
+															var firstScore = 0;
+															var secondScore = 0;
+															
+															firstScore = ""+fileData10[k]["Score"][0]+fileData10[k]["Score"][1];
+															secondScore = ""+fileData10[k]["Score"][5]+fileData10[k]["Score"][6];
+														
+															if(fileData10[k]["Home Team"]==teams[i] && fileData10[k]["Away Team"]==teams[j]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																total++;
+																teamsMap[teams[i]].push(teams[j]);
+															}
+															else if(fileData10[k]["Home Team"]==teams[j] && fileData10[k]["Away Team"]==teams[i]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																total++;
+																teamsMap[teams[j]].push(teams[i]);
+															}
+														}
+														
+														//2011
+														for(var k=0;k<fileData11.length;k++){
+															var firstScore = 0;
+															var secondScore = 0;
+															
+															firstScore = ""+fileData11[k]["Score"][0]+fileData11[k]["Score"][1];
+															secondScore = ""+fileData11[k]["Score"][5]+fileData11[k]["Score"][6];
+														
+															if(fileData11[k]["Home Team"]==teams[i] && fileData11[k]["Away Team"]==teams[j]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																total++;
+																teamsMap[teams[i]].push(teams[j]);
+															}
+															else if(fileData11[k]["Home Team"]==teams[j] && fileData11[k]["Away Team"]==teams[i]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																total++;
+																teamsMap[teams[j]].push(teams[i]);
+															}
+														}
+														
+														//2012
+														for(var k=0;k<fileData12.length;k++){
+															var firstScore = 0;
+															var secondScore = 0;
+															
+															firstScore = ""+fileData12[k]["Score"][0]+fileData12[k]["Score"][1];
+															secondScore = ""+fileData12[k]["Score"][5]+fileData12[k]["Score"][6];
+														
+															if(fileData12[k]["Home Team"]==teams[i] && fileData12[k]["Away Team"]==teams[j]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																total++;
+																teamsMap[teams[i]].push(teams[j]);
+															}
+															else if(fileData12[k]["Home Team"]==teams[j] && fileData12[k]["Away Team"]==teams[i]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																total++;
+																teamsMap[teams[j]].push(teams[i]);
+															}
+														}
+														
+														//2013
+														for(var k=0;k<fileData13.length;k++){
+															var firstScore = 0;
+															var secondScore = 0;
+															
+															firstScore = ""+fileData13[k]["Score"][0]+fileData13[k]["Score"][1];
+															secondScore = ""+fileData13[k]["Score"][5]+fileData13[k]["Score"][6];
+														
+															if(fileData13[k]["Home Team"]==teams[i] && fileData13[k]["Away Team"]==teams[j]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																total++;
+																teamsMap[teams[i]].push(teams[j]);
+															}
+															else if(fileData13[k]["Home Team"]==teams[j] && fileData13[k]["Away Team"]==teams[i]){
+																if(parseInt(firstScore)>parseInt(secondScore)){
+																	enemyTeamScore++;
+																}
+																else if(parseInt(firstScore)<parseInt(secondScore)){
+																	currentTeamScore++;
+																}
+																total++;
+																teamsMap[teams[j]].push(teams[i]);
+															}
+														}
+													
+														var tfPercent = total*0.25;
+														
+														if(total>0){
+															if(currentTeamScore>=tfPercent && enemyTeamScore>=tfPercent){
+																result+="<i>Total Games: "+total+"</i> - "+teams[i]+": "+currentTeamScore+" vs "+teams[j]+": "+enemyTeamScore+"</br>";
+															}
+														}	
+													}
+												}
+											}
+										}
+									}
+									
+									//console.log("returningall: "+result);
+									callback(result);
+								});
+							});
+						});
+					});
+				});
+			});
+			
+			function containsTeam(teamsMap, currentTeam, enemyTeam){
+				var teams = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+				
+				for(var i=0;i<teams.length;i++){
+					if(teams[i]==currentTeam){
+						for(var j=0;j<teamsMap[teams[i]].length;j++){
+							if(teamsMap[teams[i]][j]==enemyTeam){
+								return true;
+							}
+						}
+					}
+					else if(teams[i]==enemyTeam){
+						for(var j=0;j<teamsMap[teams[i]].length;j++){
+							if(teamsMap[teams[i]][j]==currentTeam){
+								return true;
+							}
+						}
+					}
+				}
+				
+				return false;
+			}
+		}
+		
+		//Changes the mode to graph/default mode
+		function changeMode(){
+			clearGraphs();
+			drawCanvas.selectAll("circle").remove();
+			drawCanvas.selectAll("rect").remove();
+			drawCanvas.selectAll("text").remove();
+			matchCount = 0;
+			
+			if(stats=="opened"){
+				printInformation();
+				stats = "closed";
+			}
+			d3.select("#noresults").html("");
+			var elem = document.getElementById("modeButton");
+			
+			if(elem.innerHTML=="Default"){
+				elem.innerHTML = "Compare"
+				
+				d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				clearGraphs();
+				var radius = 26;
+				for( var i = 0; i < fileData.length; i++ ) {
+					if(fileData[i]["Venue"]==null || fileData[i]["Venue"]==undefined || fileData[i]["Venue"].length==0){
+						byes++;
+					}
+				
+					//circles[i] = Math.floor(15+(Math.random()*((30)+1)));
+					circles[i] = (26+i)/2;
+					var instance = [];
+					instance[0] = fileData[i]["Round"];
+					instance[1] = fileData[i]["Date"];
+					instance[2] = fileData[i]["Home Team"];
+					instance[3] = fileData[i]["Score"];
+					instance[4] = fileData[i]["Away Team"];
+					instance[5] = fileData[i]["Venue"];
+					info[i] = instance;
+					matchCount++;
+				}
+				d3.select("#countinfobox").html("<b><u>Quick Facts:</u></b></br><b>Most Wins:</b> "+maxWinTeam+" - "+maxWin+"</br><b>Most Losses:</b> "+maxLossTeam+" - "+maxLoss+"</br><b>Matches Shown:</b> "+matchCount);
+				////console.log("2013 Size: "+info.length);
+				
+				var xPos = 0;
+				var yPos = 60;
+		
+				drawCanvas.selectAll("circle")
+					.data(circles) 		
+					.enter()
+						.append("svg:circle") 
+						.attr("cx", randomXPosition)
+						.attr("cy", randomYPosition)
+						.attr("stroke-width", 2)
+						.attr("stroke", "black")
+						.attr("fill", function(d){return colourScale(d);})
+						.attr("r", function(d) {return d;})		
+						.on("mouseover", circleMouseOver)
+						.on("mouseout", circleMouseOut)
+						.transition()
+						.duration(1500)
+						
+						.attr("cx", function(d, i){
+							////console.log("x: "+i+" = "+(xPos+((26+i)/2))); 
+							xPos+=+((26+i)/2)-10; 
+							if(i==57){
+								xPos = 450;
+							}
+							return (xPos+((26+i)/2));
+						})							
+						.attr("cy", function(d, i){
+							////console.log("y: "+i+" = "+(yPos+((26+i)/2))); 
+							yPos+=+((26+i)/2)-20; 
+							if(i==57){
+								yPos = 10;
+							}
+							return (yPos+((26+i)/2));
+						});
+							
+				});
+				
+				d3.select("p").text("Switched from win mode back to default mode! Point at the circles to see match information!");
+			}
+			else{
+				//test
+				var teams = {};
+			
+				teams["Adelaide Thunderbirds"] = 0;
+				teams["Canterbury Tactix"] = 0;
+				teams["Central Pulse"] = 0;
+				teams["Melbourne Vixens"] = 0;
+				teams["New South Wales Swifts"] = 0;
+				teams["Northern Mystics"] = 0;
+				teams["Queensland Firebirds"] = 0;
+				teams["Southern Steel"] = 0;
+				teams["Waikato Bay of Plenty Magic"] = 0;
+				teams["West Coast Fever"] = 0;
+				
+				var teamsLost = {};
+				teamsLost["Adelaide Thunderbirds"] = 0;
+				teamsLost["Canterbury Tactix"] = 0;
+				teamsLost["Central Pulse"] = 0;
+				teamsLost["Melbourne Vixens"] = 0;
+				teamsLost["New South Wales Swifts"] = 0;
+				teamsLost["Northern Mystics"] = 0;
+				teamsLost["Queensland Firebirds"] = 0;
+				teamsLost["Southern Steel"] = 0;
+				teamsLost["Waikato Bay of Plenty Magic"] = 0;
+				teamsLost["West Coast Fever"] = 0;
+				
+				var sortedKeys = ["Adelaide Thunderbirds","Canterbury Tactix","Central Pulse","Melbourne Vixens","New South Wales Swifts","Northern Mystics","Queensland Firebirds","Southern Steel","Waikato Bay of Plenty Magic","West Coast Fever"];
+				
+				if(currentSelectedYear.length>0){
+					d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+					
+						for(var i=0;i<fileData.length;i++){
+							var firstScore = 0;
+							var secondScore = 0;
+								
+							firstScore = ""+fileData[i]["Score"][0]+fileData[i]["Score"][1];
+							secondScore = ""+fileData[i]["Score"][5]+fileData[i]["Score"][6];
+							
+							if(parseInt(firstScore)>parseInt(secondScore)){
+								if(fileData[i]["Home Team"] in teams){
+									teams[fileData[i]["Home Team"]]++;
+									teamsLost[fileData[i]["Away Team"]]++;
+								}
+							}
+							else if(parseInt(firstScore)<parseInt(secondScore)){
+								if(fileData[i]["Away Team"] in teams){
+									teams[fileData[i]["Away Team"]]++;
+									teamsLost[fileData[i]["Home Team"]]++;
+								}
+							}
+						}
+						
+						//Bar Chart
+						myTextBox = document.getElementById("textEntry");
+						teamValue = myTextBox.value;
+						
+						myTextBox = document.getElementById("opponentEntry");
+						oppTeamValue = myTextBox.value;
+						
+						if(oppTeamValue!="All" && teamValue!="Byes"){
+							var barChartData = {
+								labels : [teamValue,oppTeamValue],
+								datasets : [
+									{
+										fillColor : "rgba(220,220,220,0.5)",
+										strokeColor : "rgba(220,220,220,1)",
+										data : [teams[teamValue],teams[oppTeamValue]]
+									},
+									{
+										fillColor : "rgba(151,187,205,0.5)",
+										strokeColor : "rgba(151,187,205,1)",
+										data : [teamsLost[teamValue],teamsLost[oppTeamValue]]
+									}
+								]
+							}
+							
+							//Line chart
+							d3.csv("2008-Table1.csv", function(fileData8){
+								d3.csv("2009-Table1.csv", function(fileData9){
+									d3.csv("2010-Table1.csv", function(fileData10){
+										d3.csv("2011-Table1.csv", function(fileData11){
+											d3.csv("2012-Table1.csv", function(fileData12){
+												d3.csv("2013-Table1.csv", function(fileData13){
+								
+								var team2008 = 0;
+								var team2009 = 0;
+								var team2010 = 0;
+								var team2011 = 0;
+								var team2012 = 0;
+								var team2013 = 0;
+								
+								var oppteam2008 = 0;
+								var oppteam2009 = 0;
+								var oppteam2010 = 0;
+								var oppteam2011 = 0;
+								var oppteam2012 = 0;
+								var oppteam2013 = 0;
+							
+								//2008
+								for(var i=0;i<fileData8.length;i++){
+									var firstScore = ""+fileData8[i]["Score"][0]+fileData8[i]["Score"][1];
+									var secondScore = ""+fileData8[i]["Score"][5]+fileData8[i]["Score"][6];
+								
+									if(fileData8[i]["Home Team"]==teamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											team2008++;
+										}
+									}
+									else if(fileData8[i]["Away Team"]==teamValue){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											team2008++;
+										}
+									}
+								}
+								
+								for(var i=0;i<fileData8.length;i++){
+									var firstScore = ""+fileData8[i]["Score"][0]+fileData8[i]["Score"][1];
+									var secondScore = ""+fileData8[i]["Score"][5]+fileData8[i]["Score"][6];
+								
+									if(fileData8[i]["Home Team"]==oppTeamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											oppteam2008++;
+										}
+									}
+									else if(fileData8[i]["Away Team"]==oppTeamValue){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											oppteam2008++;
+										}
+									}
+								}
+								
+								//2009
+								for(var i=0;i<fileData9.length;i++){
+									var firstScore = ""+fileData9[i]["Score"][0]+fileData9[i]["Score"][1];
+									var secondScore = ""+fileData9[i]["Score"][5]+fileData9[i]["Score"][6];
+								
+									if(fileData9[i]["Home Team"]==teamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											team2009++;
+										}
+									}
+									else if(fileData9[i]["Away Team"]==teamValue){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											team2009++;
+										}
+									}
+								}
+								
+								for(var i=0;i<fileData9.length;i++){
+									var firstScore = ""+fileData9[i]["Score"][0]+fileData9[i]["Score"][1];
+									var secondScore = ""+fileData9[i]["Score"][5]+fileData9[i]["Score"][6];
+								
+									if(fileData9[i]["Home Team"]==oppTeamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											oppteam2009++;
+										}
+									}
+									else if(fileData9[i]["Away Team"]==oppTeamValue){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											oppteam2009++;
+										}
+									}
+								}
+								
+								//2010
+								for(var i=0;i<fileData10.length;i++){
+									var firstScore = ""+fileData10[i]["Score"][0]+fileData10[i]["Score"][1];
+									var secondScore = ""+fileData10[i]["Score"][5]+fileData10[i]["Score"][6];
+								
+									if(fileData10[i]["Home Team"]==teamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											team2010++;
+										}
+									}
+									else if(fileData10[i]["Away Team"]==teamValue){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											team2010++;
+										}
+									}
+									else if(fileData10[i]["Home Team"]==oppTeamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											oppteam2010++;
+										}
+									}
+									else if(fileData10[i]["Away Team"]==oppTeamValue){ 
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											oppteam2010++;
+										}
+									}
+								}
+								
+								//2011
+								for(var i=0;i<fileData11.length;i++){
+									var firstScore = ""+fileData11[i]["Score"][0]+fileData11[i]["Score"][1];
+									var secondScore = ""+fileData11[i]["Score"][5]+fileData11[i]["Score"][6];
+								
+									if(fileData11[i]["Home Team"]==teamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											team2011++;
+										}
+									}
+									else if(fileData11[i]["Away Team"]==teamValue){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											team2011++;
+										}
+									}
+									else if(fileData11[i]["Home Team"]==oppTeamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											oppteam2011++;
+										}
+									}
+									else if(fileData11[i]["Away Team"]==oppTeamValue){ 
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											oppteam2011++;
+										}
+									}
+								}
+								
+								//2012
+								for(var i=0;i<fileData12.length;i++){
+									var firstScore = ""+fileData12[i]["Score"][0]+fileData12[i]["Score"][1];
+									var secondScore = ""+fileData12[i]["Score"][5]+fileData12[i]["Score"][6];
+								
+									if(fileData12[i]["Home Team"]==teamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											team2012++;
+										}
+									}
+									else if(fileData12[i]["Away Team"]==teamValue){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											team2012++;
+										}
+									}
+									else if(fileData12[i]["Home Team"]==oppTeamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											oppteam2012++;
+										}
+									}
+									else if(fileData12[i]["Away Team"]==oppTeamValue){ 
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											oppteam2012++;
+										}
+									}
+								}
+								
+								//2013
+								for(var i=0;i<fileData13.length;i++){
+									var firstScore = ""+fileData13[i]["Score"][0]+fileData13[i]["Score"][1];
+									var secondScore = ""+fileData13[i]["Score"][5]+fileData13[i]["Score"][6];
+								
+									if(fileData13[i]["Home Team"]==teamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											team2013++;
+										}
+									}
+									else if(fileData13[i]["Away Team"]==teamValue){
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											team2013++;
+										}
+									}
+									else if(fileData13[i]["Home Team"]==oppTeamValue){
+										if(parseInt(firstScore)>parseInt(secondScore)){
+											oppteam2013++;
+										}
+									}
+									else if(fileData13[i]["Away Team"]==oppTeamValue){ 
+										if(parseInt(firstScore)<parseInt(secondScore)){
+											oppteam2013++;
+										}
+									}
+								}
+						
+								var lineChartData = {
+									labels : ["2008","2009","2010","2011","2012","2013"],
+									datasets : [
+										{
+											fillColor : "rgba(255,0,0,0.5)",
+											strokeColor : "rgba(220,220,220,1)",
+											pointColor : "rgba(220,220,220,1)",
+											pointStrokeColor : "#fff",
+											data : [team2008,team2009,team2010,team2011,team2012,team2013]
+										},
+										{
+											fillColor : "rgba(255,165,0,0.5)",
+											strokeColor : "rgba(151,187,205,1)",
+											pointColor : "rgba(151,187,205,1)",
+											pointStrokeColor : "#fff",
+											data : [oppteam2008,oppteam2009,oppteam2010,oppteam2011,oppteam2012,oppteam2013]
+										}
+									]
+								}
+								
+								var myLine = new Chart(document.getElementById("lineCanvas").getContext("2d")).Line(lineChartData);
+								var myLine = new Chart(document.getElementById("barCanvas").getContext("2d")).Bar(barChartData);
+								
+								
+								
+												});
+											});
+										});
+									});
+								});
+							});
+							
+							d3.select("p").html("Here are bar and line graphs comparing <font color='red'>"+teamValue+"</font> and <font color='orange'>"+oppTeamValue+"</font>'s performance. The <i>bar graph</i> (left) shows you the performance of two teams in <b>"+currentSelectedYear+"</b>, showing both their wins and losses. The left bar for a team indicates the amount of wins, while the right bar indicates the amount of losses. The <i>line graph</i> (right) allows you to see the performance of both teams throughout all the seasons.");
+						
+							elem.innerHTML = "Default"
+						}
+						else{
+							d3.select("#noresults").html("Please select two valid teams!");
+						}
+					});
+					
+					
+				}
+				else{
+					d3.select("#noresults").html("You must select a year!");
+				}
+				
+				//end test
+			}
+		}
+		
+		//Venue performance
+		function venuePerformance(callback){
+			var venues = [];
+			var venuesList = [];
+			var ddl = document.getElementById("venue");
+			for (i = 0; i < ddl.options.length; i++) {
+			   venues[ddl.options[i].value] = 0;
+			   venuesList.push(ddl.options[i].value);
+			}
+
+			myTextBox = document.getElementById("textEntry");
+			value = myTextBox.value;
+			
+			d3.csv(currentSelectedYear+"-Table1.csv", function(fileData){
+				var result = "</br><b>"+currentSelectedYear+" "+value+" Venues:</b>"
+			
+				if(value!="Byes"){
+					for(var i=0;i<fileData.length;i++){
+						if(fileData[i]["Venue"] in venues && (fileData[i]["Home Team"]==value||fileData[i]["Away Team"]==value)){
+							venues[fileData[i]["Venue"]]++;
+						}
+					}
+					
+					for(var i=0;i<venuesList.length;i++){
+						if(venuesList[i]!="All" && venues[venuesList[i]]>0){
+							result+="</br>"+venuesList[i]+": "+venues[venuesList[i]];
+						}
+					}
+					
+					console.log("venue result: "+result);
+					callback(result);
+				}
+				else{
+					callback(result+"</br>Byes do not have venues!");
+				}
+			});	
+		}
+		
+		function clearGraphs(){
+			var c=document.getElementById("barCanvas");
+			var ctx=c.getContext("2d");
+			ctx.clearRect(0,0,c.width,c.height);
+			
+			var c2=document.getElementById("lineCanvas");
+			var ctx2=c2.getContext("2d");
+			ctx2.clearRect(0,0,c.width,c.height);
+		}
+		
+	</script>
+	
+	<div class="radiobuttons">		
+		<form name="input" action="" onchange="validateFilter();">
+			<b><i>- Filter:</b></i></br>
+			<select id="filter">
+				<option>All</option>
+				<option>Home Team Wins</option>
+				<option>Away Team Wins</option>
+				<option>New Zealand Wins</option>
+				<option>Australia Wins</option>
+				<option>Regular Season</option>
+				<option>Early Season</option>
+				<option>Mid Season</option>
+				<option>Finals</option>
+			</select>
+		</form>
+		<form name="input" action="" onchange="listVenues();">
+			<b><i>- Venue:</i></b></br>
+			<select id="venue">
+				<option>All</option>
+			</select>
+		</form>
+		<form name="input" action="">
+			<b><i>- Search Team:</i></b></br>
+			<select id="textEntry">
+				<option>Byes</option>
+				<option>Adelaide Thunderbirds</option>
+				<option>Canterbury Tactix</option>
+				<option>Central Pulse</option>
+				<option>Melbourne Vixens</option>
+				<option>New South Wales Swifts</option>
+				<option>Northern Mystics</option>
+				<option>Queensland Firebirds</option>
+				<option>Southern Steel</option>
+				<option>Waikato Bay of Plenty Magic</option>
+				<option>West Coast Fever</option>
+			</select></br>
+			
+			Home/Away Team:</br>
+			<select id="homeAwayTeam">
+				<option>Both</option>
+				<option>Home Team</option>
+				<option>Away Team</option>
+			</select></br>
+			
+			Opponent Team:</br>
+			<select id="opponentEntry">
+				<option>All</option>
+				<option>Adelaide Thunderbirds</option>
+				<option>Canterbury Tactix</option>
+				<option>Central Pulse</option>
+				<option>Melbourne Vixens</option>
+				<option>New South Wales Swifts</option>
+				<option>Northern Mystics</option>
+				<option>Queensland Firebirds</option>
+				<option>Southern Steel</option>
+				<option>Waikato Bay of Plenty Magic</option>
+				<option>West Coast Fever</option>
+			</select></br>
+			
+			Win/Lose:</br>
+			<select id="winLose">
+				<option>Both</option>
+				<option>Win</option>
+				<option>Lose</option>
+			</select></br>
+			<button type="button" onclick="searchTeam();">Search</button>
+			<button type="button" onclick="return printInformation();">Statistics</button>
+			<button type="button" id="modeButton" onclick="changeMode();">Compare</button>
+		</form>
+	</div>
+	
+</div>
+
+ </body>
+</html>
